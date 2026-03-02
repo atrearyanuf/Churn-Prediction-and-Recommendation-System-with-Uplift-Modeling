@@ -40,7 +40,7 @@ churn-uplift-recommendation-system/
 │   ├── processed/               # Cleaned data
 │   └── README.md                # Data documentation
 │
-├── notebooks/                   # Jupyter notebooks
+├── notebook/                   # Jupyter notebook
 │   ├── 01_data_exploration.ipynb
 │   ├── 02_feature_engineering.ipynb
 │   ├── 03_churn_prediction.ipynb
