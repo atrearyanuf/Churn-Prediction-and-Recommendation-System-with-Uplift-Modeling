@@ -74,10 +74,7 @@ churn-uplift-recommendation-system/
 │
 ├── docs/                        # Documentation
 │   ├── methodology.md
-│   └── data_dictionary.md
 │
-└── configs/                     # Configuration files
-    └── model_config.yaml
 ```
 
 ---
