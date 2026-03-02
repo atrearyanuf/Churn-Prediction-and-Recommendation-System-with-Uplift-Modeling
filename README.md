@@ -79,7 +79,7 @@ churn-uplift-recommendation-system/
 
 ---
 
-## Folder Descriptions
+## Folder Descriptions (Consider the project plan as a documentation for better understanding of the project)
 
 ### `data/`
 Contains all datasets used in the project.
