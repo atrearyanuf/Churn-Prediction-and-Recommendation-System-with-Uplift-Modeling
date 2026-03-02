@@ -188,7 +188,7 @@ jupyter notebook notebooks/complete_pipeline.ipynb
 
 ## Collaborators
 
-- Aryan Atre - Project Lead (atrearayn@ufl.edu)
+- Aryan Atre - Project Lead (atrearyan@ufl.edu)
 - Dr. Aslam Usman Gadha - Instructor (gadhaunaslam@ufl.edu)
 - Catia Silva - Project Advisor (catiaspsilva@ece.ufl.edu)
 
