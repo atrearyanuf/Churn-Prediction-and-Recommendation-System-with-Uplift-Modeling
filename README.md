@@ -13,7 +13,7 @@
 This project develops a machine learning system that combines churn prediction with uplift modeling to generate personalized customer retention recommendations. The system predicts which customers are likely to churn, estimates the effectiveness of different retention interventions using causal inference techniques, and recommends specific actions for each customer.
 
 **Key Components:**
-- Churn prediction using XGBoost and LightGBM
+- Churn prediction using XGBoost and LightGBM/CasualMl (Library from Uber)
 - Uplift modeling using Uber's CausalML (T-learner and S-learner)
 - Personalized recommendation system
 - SHAP-based model explainability
