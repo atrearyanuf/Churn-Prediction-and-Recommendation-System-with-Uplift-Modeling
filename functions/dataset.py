@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Code for the paper
-"A churn prediction dataset from the telecom sector: a new benchmark for uplift modeling"
-Anonymous authors
-"""
-
 from sklearn.model_selection import train_test_split
 import numpy as np
 

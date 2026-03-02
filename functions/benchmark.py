@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Code for the paper
-"A churn prediction dataset from the telecom sector: a new benchmark for uplift modeling"
-Anonymous authors
-"""
-
 from math import floor
 from copy import deepcopy
 import numpy as np

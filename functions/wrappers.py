@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Code for the paper
-"A churn prediction dataset from the telecom sector: a new benchmark for uplift modeling"
-Anonymous authors
-"""
-
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier

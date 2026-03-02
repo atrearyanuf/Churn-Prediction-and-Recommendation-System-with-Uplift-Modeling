@@ -1,8 +1,3 @@
-"""
-Code for the paper
-"A churn prediction dataset from the telecom sector: a new benchmark for uplift modeling"
-"""
-
 import numpy as np
 import pandas as pd
 

@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Code for the paper
-"A churn prediction dataset from the telecom sector: a new benchmark for uplift modeling"
-Anonymous authors
-"""
-
 from functools import reduce
 from copy import copy
 from joblib import Parallel, delayed
