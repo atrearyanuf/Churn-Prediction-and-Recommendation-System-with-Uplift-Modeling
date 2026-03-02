@@ -2,7 +2,7 @@
 
 **Author:** Aryan Atre  
 **Email:** atrearayn@ufl.edu  
-**Course:** CAP6307 - Artificial Intelligence Systems Capstone  
+**Course:** CAI6826 - Artificial Intelligence Systems  
 **Institution:** University of Florida  
 **Semester:** Spring 2026
 
@@ -190,7 +190,7 @@ jupyter notebook notebooks/complete_pipeline.ipynb
 
 - Aryan Atre - Project Lead (atrearayn@ufl.edu)
 - Dr. Aslam Usman Gadha - Instructor (gadhaunaslam@ufl.edu)
-- [Advisor Name] - Project Advisor
+- Catia Silva - Project Advisor (catiaspsilva@ece.ufl.edu)
 
 ---
 
