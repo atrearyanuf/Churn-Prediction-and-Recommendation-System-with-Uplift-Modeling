@@ -196,4 +196,4 @@ jupyter notebook notebooks/complete_pipeline.ipynb
 
 ## License
 
-This project is for academic purposes as part of CAP6307 coursework at the University of Florida.
+This project is for academic purposes as part of CAI6826 coursework at the University of Florida.
