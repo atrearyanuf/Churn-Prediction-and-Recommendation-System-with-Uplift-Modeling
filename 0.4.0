@@ -1,0 +1,62 @@
+Collecting FuzzyTM
+  Downloading FuzzyTM-2.0.9-py3-none-any.whl.metadata (7.9 kB)
+Requirement already satisfied: numpy in c:\users\admin\anaconda3\lib\site-packages (from FuzzyTM) (1.26.4)
+Requirement already satisfied: pandas in c:\users\admin\anaconda3\lib\site-packages (from FuzzyTM) (2.1.4)
+Requirement already satisfied: scipy in c:\users\admin\anaconda3\lib\site-packages (from FuzzyTM) (1.17.1)
+Collecting pyfume (from FuzzyTM)
+  Downloading pyFUME-0.3.4-py3-none-any.whl.metadata (9.7 kB)
+Requirement already satisfied: python-dateutil>=2.8.2 in c:\users\admin\anaconda3\lib\site-packages (from pandas->FuzzyTM) (2.8.2)
+Requirement already satisfied: pytz>=2020.1 in c:\users\admin\anaconda3\lib\site-packages (from pandas->FuzzyTM) (2023.3.post1)
+Requirement already satisfied: tzdata>=2022.1 in c:\users\admin\anaconda3\lib\site-packages (from pandas->FuzzyTM) (2023.3)
+Collecting scipy (from FuzzyTM)
+  Downloading scipy-1.10.1-cp311-cp311-win_amd64.whl.metadata (58 kB)
+     ---------------------------------------- 59.0/59.0 kB 1.0 MB/s eta 0:00:00
+Collecting numpy (from FuzzyTM)
+  Downloading numpy-1.24.4-cp311-cp311-win_amd64.whl.metadata (5.6 kB)
+Collecting simpful==2.12.0 (from pyfume->FuzzyTM)
+  Downloading simpful-2.12.0-py3-none-any.whl.metadata (4.8 kB)
+Collecting fst-pso==1.8.1 (from pyfume->FuzzyTM)
+  Downloading fst-pso-1.8.1.tar.gz (18 kB)
+  Preparing metadata (setup.py): started
+  Preparing metadata (setup.py): finished with status 'done'
+Collecting pandas (from FuzzyTM)
+  Downloading pandas-1.5.3-cp311-cp311-win_amd64.whl.metadata (12 kB)
+Collecting miniful (from fst-pso==1.8.1->pyfume->FuzzyTM)
+  Downloading miniful-0.0.6.tar.gz (2.8 kB)
+  Preparing metadata (setup.py): started
+  Preparing metadata (setup.py): finished with status 'done'
+Requirement already satisfied: six>=1.5 in c:\users\admin\anaconda3\lib\site-packages (from python-dateutil>=2.8.2->pandas->FuzzyTM) (1.16.0)
+Downloading FuzzyTM-2.0.9-py3-none-any.whl (31 kB)
+Downloading pyFUME-0.3.4-py3-none-any.whl (60 kB)
+   ---------------------------------------- 60.3/60.3 kB ? eta 0:00:00
+Downloading numpy-1.24.4-cp311-cp311-win_amd64.whl (14.8 MB)
+   ---------------------------------------- 14.8/14.8 MB 25.2 MB/s eta 0:00:00
+Downloading pandas-1.5.3-cp311-cp311-win_amd64.whl (10.3 MB)
+   ---------------------------------------- 10.3/10.3 MB 31.2 MB/s eta 0:00:00
+Downloading scipy-1.10.1-cp311-cp311-win_amd64.whl (42.2 MB)
+   ---------------------------------------- 42.2/42.2 MB 29.7 MB/s eta 0:00:00
+Downloading simpful-2.12.0-py3-none-any.whl (24 kB)
+Building wheels for collected packages: fst-pso, miniful
+  Building wheel for fst-pso (setup.py): started
+  Building wheel for fst-pso (setup.py): finished with status 'done'
+  Created wheel for fst-pso: filename=fst_pso-1.8.1-py3-none-any.whl size=20451 sha256=e360b0c12537e453b8827ed785f0da240c14aa2b715b982b0882df6286dff80d
+  Stored in directory: c:\users\admin\appdata\local\pip\cache\wheels\69\f5\e5\18ad53fe1ed6b2af9fad05ec052e4acbac8e92441df44bad2e
+  Building wheel for miniful (setup.py): started
+  Building wheel for miniful (setup.py): finished with status 'done'
+  Created wheel for miniful: filename=miniful-0.0.6-py3-none-any.whl size=3517 sha256=e5101c58b5855b62a32dde05afc1156992f46bbdf08b3d3120dee2b0424f06d7
+  Stored in directory: c:\users\admin\appdata\local\pip\cache\wheels\9d\ff\2f\afe4cd56f47de147407705626517d68bea0f3b74eb1fb168e6
+Successfully built fst-pso miniful
+Installing collected packages: numpy, scipy, pandas, simpful, miniful, fst-pso, pyfume, FuzzyTM
+  Attempting uninstall: numpy
+    Found existing installation: numpy 1.26.4
+    Uninstalling numpy-1.26.4:
+      Successfully uninstalled numpy-1.26.4
+  Attempting uninstall: scipy
+    Found existing installation: scipy 1.17.1
+    Uninstalling scipy-1.17.1:
+      Successfully uninstalled scipy-1.17.1
+  Attempting uninstall: pandas
+    Found existing installation: pandas 2.1.4
+    Uninstalling pandas-2.1.4:
+      Successfully uninstalled pandas-2.1.4
+Successfully installed FuzzyTM-2.0.9 fst-pso-1.8.1 miniful-0.0.6 numpy-1.24.4 pandas-1.5.3 pyfume-0.3.4 scipy-1.10.1 simpful-2.12.0
