@@ -26,7 +26,7 @@ This project develops a machine learning system that combines churn prediction w
 
 ---
 
-## Repository Structure
+## Upcoming Repository Structure
 
 ```
 churn-uplift-recommendation-system/
