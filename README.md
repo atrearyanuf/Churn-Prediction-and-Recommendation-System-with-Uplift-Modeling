@@ -76,10 +76,9 @@ churn-uplift-recommendation-system/
 │   ├── methodology.md
 │
 ```
-
 ---
 
-## Folder Descriptions (Consider the project plan as a documentation for better understanding of the project)
+## Folder Descriptions (Consider the project plan as a documentation for better understanding of the project Plan)
 
 ### `data/`
 Contains all datasets used in the project.
@@ -120,7 +119,7 @@ Configuration files for models and pipelines
 
 ---
 
-## How to Navigate This Repository
+## How to Navigate Through This Repository
 
 **For first-time users:**
 1. Read this README
@@ -128,6 +127,7 @@ Configuration files for models and pipelines
 3. Read `data/README.md` for dataset information
 4. Run notebooks in order: `01_data_exploration.ipynb` → `02_feature_engineering.ipynb` → etc.
 5. View results in `outputs/`
+6. New Go.mod & Go.sum for better Server experience of the output CSV and model trained.
 
 **To run the project:**
 ```bash
