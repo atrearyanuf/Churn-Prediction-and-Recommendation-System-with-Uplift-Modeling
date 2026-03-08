@@ -27,6 +27,19 @@ func main() {
 func dashboardHandler(w http.ResponseWriter, r *http.Request) {
 	// 1. Read the Python-generated CSV
 	data := readCSV("outputs\\customer_recommendations.csv")
+	// For simplicity, we assume the CSV has two columns: CustomerID and UpliftScore 
+	// Example CSV content:
+	// CustomerID,UpliftScore
+	// C001,0.75
+	// C002,0.60
+	// C003,0.45
+	// In a real application, you would want to handle errors and edge cases (e.g., missing files, malformed CSV, etc.)
+	
+
+	// Call the new Csv reading function to get the data into a slice of ChurnData structs. 
+	// This Function will read the new output CSV file and convert each row into a ChurnData struct, which contains the CustomerID and UpliftScore.
+	// data := readCSV("outputs\\customer_recommendations.csv")
+	// handle the data as needed (e.g., prepare it for visualization)
 
 	// 2. Create a Bar Chart for Uplift Scores
 	bar := charts.NewBar()
