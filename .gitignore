@@ -13,6 +13,6 @@ __pycache__/
 data/
 prepared_*.pickle
 
-# Local env / misc
+# Local env
 .env
 .venv/  

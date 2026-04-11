@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Churn Prediction Architecture with GenAI</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 40px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e8edf3 100%);
+            font-family: 'Arial', sans-serif;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #00529B;
+            font-size: 36px;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            font-size: 18px;
+            margin-bottom: 40px;
+        }
+        
+        .diagram-section {
+            margin-bottom: 60px;
+        }
+        
+        .section-title {
+            font-size: 28px;
+            color: #00529B;
+            margin-bottom: 30px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #02C39A;
+        }
+        
+        .architecture {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+        
+        .stage {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            border-left: 6px solid #00529B;
+            position: relative;
+        }
+        
+        .stage-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .stage-number {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #00529B 0%, #0066CC 100%);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+            margin-right: 20px;
+        }
+        
+        .stage-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #00529B;
+        }
+        
+        .stage-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+        
+        .component {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            border-top: 4px solid #02C39A;
+        }
+        
+        .component h4 {
+            color: #00529B;
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        
+        .component p {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.6;
+            margin: 0;
+        }
+        
+        .component ul {
+            margin: 10px 0 0 0;
+            padding-left: 20px;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .component li {
+            margin-bottom: 5px;
+        }
+        
+        .arrow-down {
+            text-align: center;
+            font-size: 40px;
+            color: #00529B;
+            margin: 10px 0;
+        }
+        
+        .genai-enhancement {
+            background: linear-gradient(135deg, #FFE5CC 0%, #FFD4A3 100%);
+            border-left-color: #FF6B35;
+            position: relative;
+        }
+        
+        .genai-enhancement::before {
+            content: "✨ GenAI Enhancement";
+            position: absolute;
+            top: -15px;
+            right: 20px;
+            background: #FF6B35;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        .genai-component {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(255,107,53,0.2);
+            border-top: 4px solid #FF6B35;
+        }
+        
+        .genai-component h4 {
+            color: #FF6B35;
+            font-size: 18px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .genai-component h4::before {
+            content: "🤖";
+            margin-right: 8px;
+            font-size: 20px;
+        }
+        
+        .legend {
+            display: flex;
+            gap: 30px;
+            justify-content: center;
+            margin-top: 40px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .legend-box {
+            width: 40px;
+            height: 30px;
+            border-radius: 5px;
+        }
+        
+        .current {
+            background: #00529B;
+        }
+        
+        .genai {
+            background: #FF6B35;
+        }
+        
+        .genai-options {
+            margin-top: 40px;
+            padding: 30px;
+            background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
+            border-radius: 15px;
+            border: 3px solid #4CAF50;
+        }
+        
+        .genai-options h3 {
+            color: #2E7D32;
+            font-size: 24px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .genai-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .genai-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 5px solid #4CAF50;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+        
+        .genai-card h4 {
+            color: #2E7D32;
+            font-size: 20px;
+            margin-bottom: 15px;
+        }
+        
+        .genai-card .tag {
+            display: inline-block;
+            background: #4CAF50;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        
+        .genai-card .description {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+        
+        .genai-card .tech {
+            color: #4CAF50;
+            font-size: 13px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        
+        .genai-card ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        
+        .genai-card li {
+            color: #555;
+            font-size: 13px;
+            margin-bottom: 5px;
+        }
+        
+        @media print {
+            body {
+                background: white;
+            }
+            .container {
+                box-shadow: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Churn Prediction & Uplift Modeling Architecture</h1>
+        <div class="subtitle">Current System + GenAI Enhancement Opportunities</div>
+        
+        <!-- CURRENT ARCHITECTURE -->
+        <div class="diagram-section">
+            <div class="section-title">Current System Architecture</div>
+            
+            <div class="architecture">
+                <!-- STAGE 1: Data Layer -->
+                <div class="stage">
+                    <div class="stage-header">
+                        <div class="stage-number">1</div>
+                        <div class="stage-title">Data Layer</div>
+                    </div>
+                    <div class="stage-content">
+                        <div class="component">
+                            <h4>📊 Orange Belgium Dataset</h4>
+                            <p><strong>10,247 customers</strong> with 178 features</p>
+                            <ul>
+                                <li>PC1-PC160: 160 principal components</li>
+                                <li>FACTOR1-18: Categorical features</li>
+                                <li>Treatment (t): RCT intervention flag</li>
+                                <li>Outcome (y): Churn indicator</li>
+                            </ul>
+                        </div>
+                        <div class="component">
+                            <h4>🔧 Preprocessing Pipeline</h4>
+                            <p>Data preparation and transformation</p>
+                            <ul>
+                                <li>Stratified 60-20-20 split</li>
+                                <li>StandardScaler for numeric features</li>
+                                <li>LabelEncoder for categorical (FACTOR)</li>
+                                <li>Handle class imbalance (4.45% churn)</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="arrow-down">↓</div>
+                
+                <!-- STAGE 2: Churn Prediction -->
+                <div class="stage">
+                    <div class="stage-header">
+                        <div class="stage-number">2</div>
+                        <div class="stage-title">Churn Prediction Models</div>
+                    </div>
+                    <div class="stage-content">
+                        <div class="component">
+                            <h4>🌲 Baseline: Random Forest</h4>
+                            <p><strong>AUC: 0.8210</strong></p>
+                            <ul>
+                                <li>Ensemble baseline</li>
+                                <li>100 estimators</li>
+                                <li>Class weight balancing</li>
+                            </ul>
+                        </div>
+                        <div class="component">
+                            <h4>⚡ LightGBM</h4>
+                            <p><strong>AUC: 0.8380</strong></p>
+                            <ul>
+                                <li>Gradient boosting</li>
+                                <li>Fast training</li>
+                                <li>Categorical feature support</li>
+                            </ul>
+                        </div>
+                        <div class="component">
+                            <h4>🚀 XGBoost (BEST)</h4>
+                            <p><strong>AUC: 0.8386</strong></p>
+                            <ul>
+                                <li>Gradient boosting + regularization</li>
+                                <li>5-fold cross-validation: 0.863 ± 0.003</li>
+                                <li>Hyperparameter optimization</li>
+                                <li>Optimal threshold tuning</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="arrow-down">↓</div>
+                
+                <!-- STAGE 3: Uplift Modeling -->
+                <div class="stage">
+                    <div class="stage-header">
+                        <div class="stage-number">3</div>
+                        <div class="stage-title">Uplift Modeling (Causal Inference)</div>
+                    </div>
+                    <div class="stage-content">
+                        <div class="component">
+                            <h4>🎯 T-Learner (Best)</h4>
+                            <p><strong>Qini: 0.142</strong> | AUUC: 0.0284</p>
+                            <ul>
+                                <li>Two-model approach</li>
+                                <li>Separate models for treatment/control</li>
+                                <li>Uplift = μ₁(x) - μ₀(x)</li>
+                                <li>Base: XGBoost/Random Forest</li>
+                            </ul>
+                        </div>
+                        <div class="component">
+                            <h4>📊 S-Learner</h4>
+                            <p><strong>Qini: 0.128</strong> | AUUC: 0.0261</p>
+                            <ul>
+                                <li>Single-model approach</li>
+                                <li>Treatment as feature</li>
+                                <li>Simpler, less flexible</li>
+                                <li>Base: XGBoost/Random Forest</li>
+                            </ul>
+                        </div>
+                        <div class="component">
+                            <h4>📈 Uber CausalML</h4>
+                            <p>Meta-learner framework</p>
+                            <ul>
+                                <li>BaseTRegressor for T-Learner</li>
+                                <li>BaseSRegressor for S-Learner</li>
+                                <li>Qini & AUUC metrics</li>
+                                <li>Uplift curve visualization</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="arrow-down">↓</div>
+                
+                <!-- STAGE 4: Recommendation Engine -->
+                <div class="stage">
+                    <div class="stage-header">
+                        <div class="stage-number">4</div>
+                        <div class="stage-title">Recommendation Engine</div>
+                    </div>
+                    <div class="stage-content">
+                        <div class="component">
+                            <h4>🎲 Intervention Assignment</h4>
+                            <p>Rule-based allocation strategy</p>
+                            <ul>
+                                <li>Sort by uplift score (descending)</li>
+                                <li>Filter by churn probability threshold</li>
+                                <li>Assign intervention type</li>
+                                <li>Calculate expected ROI</li>
+                            </ul>
+                        </div>
+                        <div class="component">
+                            <h4>💼 5 Intervention Types</h4>
+                            <p>Personalized retention actions</p>
+                            <ul>
+                                <li><strong>Premium Support:</strong> High-touch service</li>
+                                <li><strong>20% Discount:</strong> Price incentive</li>
+                                <li><strong>Personalized Outreach:</strong> Targeted contact</li>
+                                <li><strong>Feature Recommendation:</strong> Product upsell</li>
+                                <li><strong>No Action:</strong> Low uplift customers</li>
+                            </ul>
+                        </div>
+                        <div class="component">
+                            <h4>📋 Output: CSV</h4>
+                            <p><strong>2,049 recommendations</strong></p>
+                            <ul>
+                                <li>Customer ID</li>
+                                <li>Churn probability</li>
+                                <li>Uplift score</li>
+                                <li>Recommended intervention</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="arrow-down">↓</div>
+                
+                <!-- STAGE 5: Business Dashboard -->
+                <div class="stage">
+                    <div class="stage-header">
+                        <div class="stage-number">5</div>
+                        <div class="stage-title">Business Intelligence Dashboard</div>
+                    </div>
+                    <div class="stage-content">
+                        <div class="component">
+                            <h4>📊 Streamlit Dashboard</h4>
+                            <p>Interactive ROI analysis</p>
+                            <ul>
+                                <li>Executive KPIs (customers, investment, ROI)</li>
+                                <li>Before/After comparison charts</li>
+                                <li>Intervention breakdown tables</li>
+                                <li>Real-time parameter adjustments</li>
+                            </ul>
+                        </div>
+                        <div class="component">
+                            <h4>💰 Business Metrics</h4>
+                            <p><strong>28.3% ROI</strong> achieved</p>
+                            <ul>
+                                <li>1,036 customers targeted</li>
+                                <li>$52,200 investment</li>
+                                <li>$66,991 revenue protected</li>
+                                <li>56 churns prevented</li>
+                                <li>$14,791 net profit</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- GENAI ENHANCEMENTS -->
+        <div class="diagram-section">
+            <div class="section-title">🤖 GenAI Enhancement Layer (Proposed)</div>
+            
+            <div class="architecture">
+                <!-- GenAI Stage 1: Explanation Generation -->
+                <div class="stage genai-enhancement">
+                    <div class="stage-header">
+                        <div class="stage-number">6</div>
+                        <div class="stage-title">Explainability & Insights (GenAI)</div>
+                    </div>
+                    <div class="stage-content">
+                        <div class="genai-component">
+                            <h4>SHAP → Natural Language</h4>
+                            <p class="description">Convert SHAP values to human-readable explanations</p>
+                            <p class="tech">Technology: GPT-4, Claude, Llama</p>
+                            <ul>
+                                <li>"Customer at risk due to high call volume (PC23: +0.15)"</li>
+                                <li>"Contract type FACTOR5 increases churn by 12%"</li>
+                                <li>Auto-generate executive summaries</li>
+                            </ul>
+                        </div>
+                        <div class="genai-component">
+                            <h4>Prediction Reasoning</h4>
+                            <p class="description">Explain why each customer is predicted to churn</p>
+                            <p class="tech">Technology: LLM fine-tuned on telecom domain</p>
+                            <ul>
+                                <li>Input: Feature values + SHAP</li>
+                                <li>Output: "This customer shows signs of dissatisfaction..."</li>
+                                <li>Multi-language support</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="arrow-down">↓</div>
+                
+                <!-- GenAI Stage 2: Content Generation -->
+                <div class="stage genai-enhancement">
+                    <div class="stage-header">
+                        <div class="stage-number">7</div>
+                        <div class="stage-title">Personalized Communication (GenAI)</div>
+                    </div>
+                    <div class="stage-content">
+                        <div class="genai-component">
+                            <h4>Email/SMS Generator</h4>
+                            <p class="description">Auto-generate personalized retention messages</p>
+                            <p class="tech">Technology: GPT-4, Claude, Fine-tuned LLMs</p>
+                            <ul>
+                                <li>Input: Customer profile + intervention type</li>
+                                <li>Output: Personalized message in customer's language</li>
+                                <li>A/B test variants automatically</li>
+                                <li>Tone adaptation (formal/casual)</li>
+                            </ul>
+                        </div>
+                        <div class="genai-component">
+                            <h4>Offer Customization</h4>
+                            <p class="description">Generate tailored promotion descriptions</p>
+                            <p class="tech">Technology: Fine-tuned GPT/Claude</p>
+                            <ul>
+                                <li>"Premium data package for high-usage customers"</li>
+                                <li>"Family plan upgrade recommendation"</li>
+                                <li>Dynamic pricing narratives</li>
+                            </ul>
+                        </div>
+                        <div class="genai-component">
+                            <h4>Retention Chatbot</h4>
+                            <p class="description">AI assistant for at-risk customers</p>
+                            <p class="tech">Technology: RAG + LLM (GPT-4/Claude)</p>
+                            <ul>
+                                <li>Proactive outreach: "We noticed you might leave..."</li>
+                                <li>Real-time intervention suggestions</li>
+                                <li>FAQ + escalation to human agent</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="arrow-down">↓</div>
+                
+                <!-- GenAI Stage 3: Reporting & Analytics -->
+                <div class="stage genai-enhancement">
+                    <div class="stage-header">
+                        <div class="stage-number">8</div>
+                        <div class="stage-title">Automated Reporting (GenAI)</div>
+                    </div>
+                    <div class="stage-content">
+                        <div class="genai-component">
+                            <h4>Executive Report Generator</h4>
+                            <p class="description">Auto-generate weekly/monthly retention reports</p>
+                            <p class="tech">Technology: LLM + Data-to-Text (GPT-4)</p>
+                            <ul>
+                                <li>Input: Dashboard metrics + trends</li>
+                                <li>Output: "This week, churn risk increased by 8% due to..."</li>
+                                <li>Insight generation: "Top 3 risk factors are..."</li>
+                                <li>Automated PowerPoint/PDF creation</li>
+                            </ul>
+                        </div>
+                        <div class="genai-component">
+                            <h4>Campaign Performance Analysis</h4>
+                            <p class="description">Analyze A/B test results with LLM insights</p>
+                            <p class="tech">Technology: Claude + Code Interpreter</p>
+                            <ul>
+                                <li>"Discount campaign had 23% higher conversion..."</li>
+                                <li>Statistical significance narratives</li>
+                                <li>Recommendation: "Focus budget on outreach..."</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- GENAI OPTIONS -->
+        <div class="genai-options">
+            <h3>🚀 Recommended GenAI Integrations (Priority Order)</h3>
+            
+            <div class="genai-grid">
+                <div class="genai-card">
+                    <span class="tag">HIGH PRIORITY</span>
+                    <h4>1. Personalized Message Generator</h4>
+                    <p class="description">
+                        <strong>What:</strong> Auto-generate retention emails/SMS for each customer based on their risk profile and recommended intervention.
+                    </p>
+                    <p class="description">
+                        <strong>Why:</strong> Most immediate business impact - improves conversion rates by 20-40% vs generic messages.
+                    </p>
+                    <p class="tech">Tech Stack: GPT-4 API + Prompt Templates + A/B Testing Framework</p>
+                    <p class="description"><strong>Implementation:</strong></p>
+                    <ul>
+                        <li>Input: Customer features + churn probability + intervention type</li>
+                        <li>Prompt: "Generate personalized retention email for [customer_segment] with [intervention]"</li>
+                        <li>Output: 3 message variants (formal, casual, urgency-focused)</li>
+                        <li>Validation: Human review + A/B test best performers</li>
+                    </ul>
+                    <p class="tech">Expected ROI: 25-35% improvement in retention campaign effectiveness</p>
+                </div>
+                
+                <div class="genai-card">
+                    <span class="tag">HIGH PRIORITY</span>
+                    <h4>2. Explainability Assistant (SHAP → Text)</h4>
+                    <p class="description">
+                        <strong>What:</strong> Convert SHAP feature importance to natural language explanations for non-technical stakeholders.
+                    </p>
+                    <p class="description">
+                        <strong>Why:</strong> Builds trust in ML predictions, enables customer service reps to have informed conversations.
+                    </p>
+                    <p class="tech">Tech Stack: SHAP + GPT-4/Claude + Custom Prompt Engineering</p>
+                    <p class="description"><strong>Implementation:</strong></p>
+                    <ul>
+                        <li>Extract top 5 SHAP features per customer</li>
+                        <li>Prompt: "Explain why this customer is at risk: PC23=0.15 (high call volume), FACTOR7=Corporate (contract type)..."</li>
+                        <li>Output: "This customer is at high risk because they've contacted support 12x in the past month (frustrated) and have a corporate plan expiring soon."</li>
+                        <li>Multi-language support for global deployment</li>
+                    </ul>
+                    <p class="tech">Expected ROI: Faster agent response time, better customer conversations</p>
+                </div>
+                
+                <div class="genai-card">
+                    <span class="tag">MEDIUM PRIORITY</span>
+                    <h4>3. Retention Chatbot (RAG)</h4>
+                    <p class="description">
+                        <strong>What:</strong> AI chatbot that proactively reaches out to at-risk customers with personalized offers.
+                    </p>
+                    <p class="description">
+                        <strong>Why:</strong> Scalable 1-on-1 intervention, reduces customer service workload, 24/7 availability.
+                    </p>
+                    <p class="tech">Tech Stack: RAG (Retrieval-Augmented Generation) + Vector DB + GPT-4/Claude</p>
+                    <p class="description"><strong>Implementation:</strong></p>
+                    <ul>
+                        <li>Knowledge base: FAQs, product catalog, pricing, policies</li>
+                        <li>Vector DB: ChromaDB/Pinecone for semantic search</li>
+                        <li>Trigger: When churn_prob > 0.6, chatbot initiates conversation</li>
+                        <li>"Hi [Name], we noticed you might be considering other options. Can I help?"</li>
+                        <li>Escalation to human if chatbot confidence < 0.7</li>
+                    </ul>
+                    <p class="tech">Expected ROI: 15-20% reduction in churn for proactive outreach segment</p>
+                </div>
+                
+                <div class="genai-card">
+                    <span class="tag">MEDIUM PRIORITY</span>
+                    <h4>4. Executive Report Auto-Generator</h4>
+                    <p class="description">
+                        <strong>What:</strong> Automatically generate weekly retention performance reports with insights and recommendations.
+                    </p>
+                    <p class="description">
+                        <strong>Why:</strong> Saves 5-10 hours/week of manual reporting, surfaces insights humans might miss.
+                    </p>
+                    <p class="tech">Tech Stack: Data-to-Text LLM (GPT-4) + Python Automation + PPT Generation</p>
+                    <p class="description"><strong>Implementation:</strong></p>
+                    <ul>
+                        <li>Input: Dashboard metrics (ROI, customers saved, campaign performance)</li>
+                        <li>Trend analysis: Week-over-week, month-over-month</li>
+                        <li>Output: "This week, churn risk decreased 3% due to successful discount campaign. Recommend increasing budget for personalized outreach by 15%."</li>
+                        <li>Auto-generate PowerPoint slides + email summary</li>
+                    </ul>
+                    <p class="tech">Expected ROI: 10 hours/week saved + better decision-making speed</p>
+                </div>
+                
+                <div class="genai-card">
+                    <span class="tag">LOW PRIORITY</span>
+                    <h4>5. Campaign Content A/B Test Generator</h4>
+                    <p class="description">
+                        <strong>What:</strong> Auto-generate multiple campaign variants (headlines, CTAs, images) for A/B testing.
+                    </p>
+                    <p class="description">
+                        <strong>Why:</strong> Faster experimentation, discover high-performing messaging without manual copywriting.
+                    </p>
+                    <p class="tech">Tech Stack: GPT-4 (text) + DALL-E/Midjourney (images) + A/B Testing Platform</p>
+                    <p class="description"><strong>Implementation:</strong></p>
+                    <ul>
+                        <li>Generate 5 variants per campaign (different tones, urgency levels)</li>
+                        <li>Headlines: "Don't leave us!", "Exclusive offer for you", "We value your loyalty"</li>
+                        <li>Track click-through rates, conversions automatically</li>
+                        <li>LLM learns from winning variants over time</li>
+                    </ul>
+                    <p class="tech">Expected ROI: 10-15% improvement in campaign conversion rates</p>
+                </div>
+                
+                <div class="genai-card">
+                    <span class="tag">FUTURE</span>
+                    <h4>6. Multimodal Churn Prediction</h4>
+                    <p class="description">
+                        <strong>What:</strong> Incorporate customer support call transcripts, app screenshots, email sentiment into churn model.
+                    </p>
+                    <p class="description">
+                        <strong>Why:</strong> Capture signals that tabular data misses (frustrated tone in calls, app UX complaints).
+                    </p>
+                    <p class="tech">Tech Stack: Whisper (audio) + Vision Transformers + LLM Embeddings + XGBoost</p>
+                    <p class="description"><strong>Implementation:</strong></p>
+                    <ul>
+                        <li>Audio: Transcribe support calls → Sentiment analysis → Embedding</li>
+                        <li>Text: Email complaints → Topic modeling → Embedding</li>
+                        <li>Combine with existing 178 features</li>
+                        <li>Expected AUC improvement: 0.8386 → 0.86-0.88</li>
+                    </ul>
+                    <p class="tech">Expected ROI: 2-4% AUC gain = millions in revenue for large telecoms</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- LEGEND -->
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-box current"></div>
+                <span>Current System (Implemented)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-box genai"></div>
+                <span>GenAI Enhancements (Proposed)</span>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
