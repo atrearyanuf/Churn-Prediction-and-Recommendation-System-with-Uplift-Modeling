@@ -1,4 +1,4 @@
-# 🎯 Churn Prediction & Recommendation System with Uplift Modeling
+#  Churn Prediction & Recommendation System with Uplift Modeling
 
 <div align="center">
 
