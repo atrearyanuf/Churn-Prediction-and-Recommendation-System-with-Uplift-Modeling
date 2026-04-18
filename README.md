@@ -4,8 +4,6 @@
 
 ![Python Version](https://img.shields.io/badge/python-3.12+-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)
-![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
 
 **A production-ready causal inference system that shifts customer retention from "who will churn?" to "who will respond?"**
