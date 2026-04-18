@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)
+![Python Version](https://img.shields.io/badge/python-3.12+-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)
 ![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)
@@ -47,7 +47,7 @@ This project implements a **production-ready uplift modeling system** that uses 
 
 ### Academic Context
 
-- **Course:** CAP6307 - Artificial Intelligence Systems
+- **Course:** CAI6826 - Artificial Intelligence Systems
 - **Institution:** University of Florida
 - **Author:** Aryan Atre
 - **Year:** Spring 2026
@@ -236,9 +236,9 @@ streamlit run src/dashboard.py
 
 ### Prerequisites
 
-- Python 3.11 or higher
-- pip (Python package manager)
-- virtualenv (recommended)
+- Python 3.12 or higher
+- pip (Python package manager) / Conda env package manager 
+- virtualenv/CondaEnv (recommended)
 - 16GB RAM (for full dataset processing)
 
 ### Step 1: Clone Repository
@@ -256,7 +256,7 @@ python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # OR using conda
-conda create -n churn-uplift python=3.11
+conda create -n churn-uplift python=3.12
 conda activate churn-uplift
 ```
 
@@ -288,7 +288,7 @@ python -c "import xgboost, causalml, shap; print('Installation successful!')"
 
 ---
 
-## Quick Start
+## Quick Start to the capstone project
 
 ### Option 1: End-to-End Pipeline
 
@@ -506,7 +506,7 @@ STREAMLIT_PORT=8501
 
 ---
 
-## 💻 Usage
+##  Usage
 
 ### Training Models
 
@@ -692,7 +692,7 @@ def calculate_qini_coefficient(
 | Net Benefit | $27,948 | After intervention cost |
 | **ROI** | **1,204%** | Projected impact |
 
-**Validation Note:** ROI is projected based on model predictions. Production deployment requires A/B testing for validation.
+**Validation Note:** ROI is projected based on model predictions. Production deployment requires A/B testing for validation, and not following the Next Feature Fallacy.
 
 ---
 
@@ -912,7 +912,7 @@ def calculate_qini_coefficient(
 - **New Features:** Add new meta-learners, evaluation metrics, or visualizations
 - **Documentation:** Improve README, add tutorials, write guides
 - **Testing:** Increase test coverage, add integration tests
-- **UI/UX:** Enhance dashboard design, add new visualizations
+- **UI/UX:** Enhance dashboard design, add new visualizations for steamlit
 - **Performance:** Optimize code, reduce memory usage, speed up training
 
 ---
@@ -930,7 +930,7 @@ If you use this project in your research, please cite:
   publisher = {GitHub},
   journal = {GitHub repository},
   howpublished = {\url{https://github.com/yourusername/churn-uplift-modeling}},
-  note = {CAP6307 - Artificial Intelligence Systems, University of Florida}
+  note = {CAI6826 - Artificial Intelligence Systems, University of Florida}
 }
 ```
 
@@ -938,7 +938,7 @@ If you use this project in your research, please cite:
 ```
 Atre, A. (2026). Churn Prediction and Recommendation System with Uplift Modeling: 
 A Causal Inference Approach to Customer Retention. 
-CAP6307 Final Project Report, University of Florida.
+CAI6826 Final Project Report, University of Florida.
 ```
 
 ---
@@ -997,8 +997,8 @@ SOFTWARE.
 
 ### Special Thanks
 
-- **University of Florida** - CAP6307 course infrastructure
-- **Professor [Name]** - Project guidance and feedback
+- **University of Florida** - CAI6826 course infrastructure
+- **Professor [Name]** - Project guidance and feedback(Dr. Silva and Professor Aslam)
 - **Open Source Community** - Libraries and tools that made this possible
 
 ---
@@ -1008,14 +1008,14 @@ SOFTWARE.
 **Aryan Atre**
 - University of Florida - Artificial Intelligence Systems
 - Email: atrearayn@ufl.edu
-- LinkedIn: [linkedin.com/in/aryan-atre](https://linkedin.com/in/aryan-atre)
-- GitHub: [@yourusername](https://github.com/yourusername)
+- LinkedIn: [linkedin.com/in/aryan-atre](https://www.linkedin.com/in/aryan-atre)
+- GitHub: [@yourusername](https://github.com/atrearyanuf)
 
 ### Getting Help
 
 - **Issues:** [GitHub Issues](https://github.com/yourusername/churn-uplift-modeling/issues)
 - **Discussions:** [GitHub Discussions](https://github.com/yourusername/churn-uplift-modeling/discussions)
-- **Email:** For private inquiries: atrearayn@ufl.edu
+- **Email:** For inquiries: atrearayn@ufl.edu
 
 ---
 
@@ -1040,18 +1040,6 @@ SOFTWARE.
 - [ ] AutoML for hyperparameter optimization
 - [ ] REST API for production deployment
 - [ ] Mobile app for recommendations
-
----
-
-## 📈 Project Statistics
-
-![GitHub stars](https://img.shields.io/github/stars/yourusername/churn-uplift-modeling?style=social)
-![GitHub forks](https://img.shields.io/github/forks/yourusername/churn-uplift-modeling?style=social)
-![GitHub watchers](https://img.shields.io/github/watchers/yourusername/churn-uplift-modeling?style=social)
-
-![GitHub commit activity](https://img.shields.io/github/commit-activity/m/yourusername/churn-uplift-modeling)
-![GitHub last commit](https://img.shields.io/github/last-commit/yourusername/churn-uplift-modeling)
-![GitHub code size](https://img.shields.io/github/languages/code-size/yourusername/churn-uplift-modeling)
 
 ---
 
