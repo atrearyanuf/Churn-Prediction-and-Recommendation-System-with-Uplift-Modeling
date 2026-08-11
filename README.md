@@ -54,6 +54,7 @@ This project implements a **production-ready uplift modeling system** that uses 
 
 - **Churn Prediction:** XGBoost AUC **0.839**, F1 **0.231** (28:1 class imbalance)
 - **Uplift Modeling:** S-Learner Qini **0.33** (33% better than random targeting)
+- Uplift Eval: T-Learner (Qini -1.25) and S-Learner (Qini 0.17) both failed to beat random targeting — likely a data/signal issue (sample size, weak effect, or assignment quality), not model choice. Want to dig into the data before iterating further.
 - **Business Impact:** **58 customers** targeted, **$27,948** net benefit, **1,204% ROI**
 - **Deployment:** Streamlit dashboard with SHAP explainability
 
