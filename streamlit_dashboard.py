@@ -6,7 +6,7 @@ import plotly.express as px
 
 # Written by Churn_Uplift_COMPLETE.ipynb (paths relative to the repo root)
 DATA_FILES = {
-    "raw": "data/churn_uplift_anonymized.csv",
+    "raw": "data/churn_uplift_anonymized.parquet",
     "recs": "outputs/customer_recommendations.csv",
     "models": "outputs/uplift_comparison_results.csv",
 }
@@ -17,7 +17,7 @@ st.title("Churn Prediction & Uplift Modeling")
 # ── Load data ──────────────────────────────────────────────────────────────────
 @st.cache_data
 def load_data():
-    raw = pd.read_csv(DATA_FILES["raw"])
+    raw = pd.read_parquet(DATA_FILES["raw"])
     recs = pd.read_csv(DATA_FILES["recs"])
     models = pd.read_csv(DATA_FILES["models"])
     return raw, recs, models

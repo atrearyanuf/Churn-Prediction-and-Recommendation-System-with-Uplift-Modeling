@@ -3,6 +3,7 @@
 # Core data science
 numpy==2.4.2
 pandas==2.3.3
+pyarrow==23.0.1
 scipy==1.17.1
 
 # Visualisation

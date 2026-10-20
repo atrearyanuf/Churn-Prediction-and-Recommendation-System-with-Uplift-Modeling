@@ -12,8 +12,8 @@ DASHBOARD = str(Path(__file__).resolve().parents[1] / "streamlit_dashboard.py")
 def test_dashboard_renders_notebook_outputs(tmp_path, monkeypatch):
     (tmp_path / "data").mkdir()
     (tmp_path / "outputs").mkdir()
-    pd.DataFrame({"y": [0, 1, 0, 0], "t": [1, 1, 0, 1]}).to_csv(
-        tmp_path / "data" / "churn_uplift_anonymized.csv", index=False)
+    pd.DataFrame({"y": [0, 1, 0, 0], "t": [1, 1, 0, 1]}).to_parquet(
+        tmp_path / "data" / "churn_uplift_anonymized.parquet", index=False)
     recommend([0.2, 0.8, 0.4, 0.6], [0.10, -0.05, 0.0, 0.03],
               customer_value=1600, offer_cost=40).to_csv(
         tmp_path / "outputs" / "customer_recommendations.csv", index=False)

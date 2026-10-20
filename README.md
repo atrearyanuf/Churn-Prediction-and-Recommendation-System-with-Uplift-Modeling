@@ -180,7 +180,7 @@ jupyter notebook Churn_Uplift_COMPLETE.ipynb
 jupyter nbconvert --to notebook --execute --inplace Churn_Uplift_COMPLETE.ipynb
 ```
 
-The first cell downloads the dataset to `data/churn_uplift_anonymized.csv`. The full run takes under a minute on a laptop. It writes:
+The first cell downloads the dataset from [OpenML (dataset 45580)](https://www.openml.org/d/45580), falling back to the original Dropbox copy, and caches it in `data/churn_uplift_anonymized.parquet`. Every copy, downloaded or cached, is checked against a fingerprint of the data these results were produced with, so a changed source fails loudly instead of silently changing the numbers. The full run takes about two minutes on a laptop. It writes:
 
 - `outputs/customer_recommendations.csv`: one row per validation customer with churn probability, retention uplift, expected profit, segment and recommendation
 - `outputs/uplift_comparison_results.csv`: Qini with confidence interval for each uplift model
@@ -235,6 +235,7 @@ The Python suite (`tests/`) checks:
 - **Cross-validation:** every learner is scored on every split, and only on out-of-fold customers (a learner that memorises its training data scores exactly 0). A real learner ranks above noise.
 - **Targeting:** the retention sign convention holds, offers go out only when profitable, and sleeping dogs are never targeted, even at high churn risk.
 - **End to end:** on a synthetic campaign with a known effect, a T-Learner trained without oversampling targets true persuadables more than 90% of the time.
+- **Dataset loading:** sources are tried in order, a source with different content is skipped, a modified cache is rejected, and the cache keeps floats exact.
 - **Dataset-paper helpers:** cross-validation splits cover every customer, EasyEnsemble folds are balanced and independent (including in parallel), and the wrappers handle 0/1 treatment flags.
 - **Dashboard:** it renders from notebook outputs and explains missing files.
 - **README:** every number above matches the notebook output, and every file path it mentions exists.
@@ -252,6 +253,7 @@ The Go tests check the CSV parsing (columns found by name, bad input rejected) a
 │   ├── eval_measures.py          # Qini and IPW Qini + bootstrap CI (used); profit curves (from the dataset paper)
 │   ├── targeting.py              # Retention-uplift convention, segments, expected-profit recommendations
 │   ├── uplift_cv.py              # Repeated cross-validation of uplift learners (out-of-fold Qini, IPW Qini)
+│   ├── data.py                   # Dataset download (OpenML, Dropbox fallback) with fingerprint check
 │   └── benchmark.py, dataset.py, easy_ensemble.py, wrappers.py
 │                                 # Benchmark helpers from the dataset paper's code (bugs fixed); used by uplift_cv.py
 ├── tests/                        # pytest suite
@@ -311,7 +313,7 @@ The Go tests check the CSV parsing (columns found by name, bad input rejected) a
 
 This project is licensed under the MIT License; see [LICENSE](LICENSE).
 
-The helper modules in `functions/` other than `functions/targeting.py`, `functions/uplift_cv.py` and the Qini functions in `functions/eval_measures.py` come from the dataset paper's code repository (see Acknowledgments).
+The helper modules in `functions/` other than `functions/targeting.py`, `functions/uplift_cv.py`, `functions/data.py` and the Qini functions in `functions/eval_measures.py` come from the dataset paper's code repository (see Acknowledgments).
 
 ---
 
@@ -319,7 +321,7 @@ The helper modules in `functions/` other than `functions/targeting.py`, `functio
 
 ### Dataset
 
-- T. Verhelst, D. Mercier, J. Shrestha, G. Bontempi. *A churn prediction dataset from the telecom sector: a new benchmark for uplift modeling.* ECML PKDD 2023 Workshop on Uplift Modeling and Causal Machine Learning for Operational Decision Making. [arXiv:2312.07206](https://arxiv.org/abs/2312.07206). Data provided by Orange Belgium; code at [TheoVerhelst/Churn-Uplift-Dataset-Paper](https://github.com/TheoVerhelst/Churn-Uplift-Dataset-Paper).
+- T. Verhelst, D. Mercier, J. Shrestha, G. Bontempi. *A churn prediction dataset from the telecom sector: a new benchmark for uplift modeling.* ECML PKDD 2023 Workshop on Uplift Modeling and Causal Machine Learning for Operational Decision Making. [arXiv:2312.07206](https://arxiv.org/abs/2312.07206). Data provided by Orange Belgium, licensed CC BY-NC-ND 4.0 and published as [OpenML dataset 45580](https://www.openml.org/d/45580); code at [TheoVerhelst/Churn-Uplift-Dataset-Paper](https://github.com/TheoVerhelst/Churn-Uplift-Dataset-Paper).
 
 ### Libraries & Frameworks
 
