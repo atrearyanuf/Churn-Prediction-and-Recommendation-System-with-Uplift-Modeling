@@ -227,6 +227,8 @@ go test ./...   # Go chart server
 
 Both run on every push via GitHub Actions (`.github/workflows/tests.yml`).
 
+A second workflow (`.github/workflows/notebook.yml`) re-runs the whole notebook from scratch, including the dataset download. It runs every Monday and whenever the notebook, `functions/` or `requirements.txt` change. `tools/compare_notebook_outputs.py` then fails the run if any printed result differs from the committed notebook, which catches code changes committed without re-running the notebook, and data sources that disappear or change.
+
 The Python suite (`tests/`) checks:
 
 - **Qini implementation:** it matches `causalml.metrics.get_qini` and `qini_score(normalize=False)`, ignores row order for tied scores, gives exactly 0 for a constant score and rejects invalid input.
@@ -238,6 +240,7 @@ The Python suite (`tests/`) checks:
 - **Dataset loading:** sources are tried in order, a source with different content is skipped, a modified cache is rejected, and the cache keeps floats exact.
 - **Dataset-paper helpers:** cross-validation splits cover every customer, EasyEnsemble folds are balanced and independent (including in parallel), and the wrappers handle 0/1 treatment flags.
 - **Dashboard:** it renders from notebook outputs and explains missing files.
+- **Notebook comparison tool:** it ignores timings, stderr and widgets, and reports changed results by cell.
 - **README:** every number above matches the notebook output, and every file path it mentions exists.
 
 The Go tests check the CSV parsing (columns found by name, bad input rejected) and the HTTP handler.
@@ -257,6 +260,7 @@ The Go tests check the CSV parsing (columns found by name, bad input rejected) a
 │   └── benchmark.py, dataset.py, easy_ensemble.py, wrappers.py
 │                                 # Benchmark helpers from the dataset paper's code (bugs fixed); used by uplift_cv.py
 ├── tests/                        # pytest suite
+├── tools/compare_notebook_outputs.py  # CI check: fresh notebook run prints the committed results
 ├── outputs/                      # Plots (tracked) and CSVs (generated, git-ignored)
 ├── end_user.go, go.mod, go.sum   # Go chart server: top customers by retention uplift
 ├── end_user_test.go              # Go tests
