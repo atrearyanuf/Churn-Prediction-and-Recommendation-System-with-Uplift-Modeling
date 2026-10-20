@@ -18,8 +18,11 @@ def _notebook_output():
 
 
 VALIDATION, TEST = _notebook_output().split("SECTION 9: FINAL TEST SET EVALUATION")
-QINI = re.compile(r"^\s+(T-Learner|S-Learner|X-Learner|UpliftRandomForest)\s+Qini=\s*([+-]\d+\.\d+)"
-                  r"\s+95% CI \[\s*([+-]\d+\.\d+),\s*([+-]\d+\.\d+)\]", re.M)
+NUM = r"\s*([+-]\d+\.\d+)"
+QINI = re.compile(rf"^\s+(T-Learner|S-Learner|X-Learner|UpliftRandomForest)\s+Qini={NUM}\s+\[{NUM},{NUM}\]"
+                  rf"\s+IPW Qini={NUM}\s+\[{NUM},{NUM}\]", re.M)
+CV = re.compile(rf"^\s+(T-Learner|S-Learner|X-Learner)\s+mean Qini={NUM}\s+mean IPW Qini={NUM}"
+                r"\s+\(std\s+(\d+\.\d+)\)\s+IPW Qini > 0 in (\d+%) of splits", re.M)
 
 
 def readme_rows(*cells):
@@ -32,25 +35,44 @@ def test_uplift_results_match_notebook():
     test = QINI.findall(TEST)
     assert len(validation) == 4 and len(test) == 1
 
-    for name, qini, low, high in validation:
-        assert readme_rows(name, "validation", qini, f"{low} to {high}"), name
-    name, qini, low, high = test[0]
-    assert readme_rows(name, "test", qini, f"{low} to {high}")
-    assert f"{qini} (95% CI {low} to {high})" in README
+    for name, qini, low, high, ipw, ipw_low, ipw_high in validation:
+        assert readme_rows(name, "validation", qini, f"{low} to {high}", ipw, f"{ipw_low} to {ipw_high}"), name
+    name, qini, low, high, ipw, ipw_low, ipw_high = test[0]
+    assert readme_rows(name, "test", qini, f"{low} to {high}", ipw, f"{ipw_low} to {ipw_high}")
+    assert f"test IPW Qini {ipw} (95% CI {ipw_low} to {ipw_high})" in README
+    assert f"test Qini would be {qini} (95% CI {low} to {high})" in README
+
+
+def test_cross_validation_results_match_notebook():
+    rows = CV.findall(VALIDATION)
+    assert len(rows) == 3
+    for name, mean_qini, mean_ipw, std_ipw, share in rows:
+        assert readme_rows(name, mean_qini, mean_ipw, std_ipw, share), name
+    selected = re.search(r"Selected by cross-validation: (\S+)", VALIDATION).group(1)
+    assert rows[0][0] == selected
+    assert readme_rows(selected, "selected by cross-validation", "test")
 
 
 def test_churn_results_match_notebook():
-    table = re.findall(r"^(RandomForest|XGBoost|LightGBM)\s+(\d\.\d+)\s+(\d\.\d+)\s+(\d\.\d+)\s+(\d\.\d+)",
-                       VALIDATION, re.M)
+    table = re.findall(r"^(RandomForest|XGBoost|LightGBM)" + r"\s+(\d\.\d+)" * 5, VALIDATION, re.M)
     assert len(table) == 3
     for name, *metrics in table:
         readme_name = {"RandomForest": "Random Forest"}.get(name, name)
         assert readme_rows(readme_name, "validation", *(f"{float(m):.3f}" for m in metrics)), name
 
     test = [f"{float(re.search(rf'{label}:\s+(\d\.\d+)', TEST).group(1)):.3f}"
-            for label in ("AUC-ROC", "F1-Score", "Precision", "Recall")]
+            for label in ("AUC-ROC", "PR-AUC", "F1-Score", "Precision", "Recall")]
     assert readme_rows("XGBoost", "test", *test)
-    assert f"test AUC {test[0]} and F1 {test[1]}" in README
+    assert f"test AUC {test[0]}, PR-AUC {test[1]}" in README and f"F1 {test[2]}" in README
+
+
+def test_calibration_results_match_notebook():
+    brier = re.search(r"Brier score:\s+raw (\d\.\d+)\s+calibrated (\d\.\d+)", TEST).groups()
+    mean = re.search(r"Mean predicted churn: raw (\d\.\d+)\s+calibrated (\d\.\d+)\s+actual (\d\.\d+)", TEST).groups()
+
+    assert readme_rows("Brier score", *brier)
+    assert readme_rows("Mean predicted churn", *mean)
+    assert f"mean predicted churn on test is {mean[1]}, against an actual {mean[2]}" in README
 
 
 def test_assumptions_and_diagnostics_match_notebook():
