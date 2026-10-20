@@ -69,8 +69,15 @@ with col2:
 st.subheader("Uplift Model Comparison")
 st.dataframe(models, width="stretch")
 
-# ── Customer recommendations table 
+# ── Customer recommendations table
 st.subheader("Customer Recommendations")
+
+# recommend() only withholds an offer with positive expected profit when the
+# uplift model failed validation, so such a row means the safety gate is on.
+if ((recs["expected_profit"] > 0) & (recs["recommended_intervention"] == "No_Action")).any():
+    st.warning("**Safety gate on:** the uplift model does not beat random targeting on held-out data, "
+               "so no offers are recommended. Expected profit and segments show the model's estimates "
+               "for analysis only. Validate with an A/B test before acting on them.")
 
 col_a, col_b = st.columns(2)
 threshold = col_a.slider("Min Churn Probability", 0.0, 1.0, 0.3, 0.05)
