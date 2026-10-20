@@ -174,7 +174,15 @@ streamlit run streamlit_dashboard.py
 
 It shows the KPIs, the churn-probability distribution, the recommendation counts, the uplift model comparison and a filterable recommendation table. If the notebook outputs are missing, it says so instead of crashing.
 
-### 3. Use the targeting functions directly
+### 3. Go chart server (optional)
+
+```bash
+go run .        # needs Go 1.23+; serves http://localhost:8081
+```
+
+It shows a bar chart of the 20 customers with the highest retention uplift, read from `outputs/customer_recommendations.csv` on every request.
+
+### 4. Use the targeting functions directly
 
 ```python
 from functions.eval_measures import bootstrap_qini
@@ -190,17 +198,21 @@ recs = recommend(churn_probability, uplift, customer_value=1600, offer_cost=40)
 ## Testing
 
 ```bash
-pytest
+pytest          # Python suite
+go test ./...   # Go chart server
 ```
 
-The suite (`tests/`) checks:
+The Python suite (`tests/`) checks:
 
 - **Qini implementation:** it matches `causalml.metrics.get_qini` and `qini_score(normalize=False)`, ignores row order for tied scores, gives exactly 0 for a constant score and rejects invalid input.
 - **Bootstrap intervals:** they are reproducible, contain 0 for a useless model and exclude 0 for a real signal.
 - **Targeting:** the retention sign convention holds, offers go out only when profitable, and sleeping dogs are never targeted, even at high churn risk.
 - **End to end:** on a synthetic campaign with a known effect, a T-Learner trained without oversampling targets true persuadables more than 90% of the time.
+- **Dataset-paper helpers:** cross-validation splits cover every customer, EasyEnsemble folds are balanced and independent (including in parallel), and the wrappers handle 0/1 treatment flags.
 - **Dashboard:** it renders from notebook outputs and explains missing files.
 - **README:** every number above matches the notebook output, and every file path it mentions exists.
+
+The Go tests check the CSV parsing (columns found by name, bad input rejected) and the HTTP handler.
 
 ---
 
@@ -213,10 +225,11 @@ The suite (`tests/`) checks:
 │   ├── eval_measures.py          # Qini curve/coefficient + bootstrap CI (used); profit curves (from the dataset paper)
 │   ├── targeting.py              # Retention-uplift convention, segments, expected-profit recommendations
 │   └── benchmark.py, dataset.py, easy_ensemble.py, wrappers.py
-│                                 # Helpers from the dataset paper's code; not used by the notebook
+│                                 # Benchmark helpers from the dataset paper's code (bugs fixed); not used by the notebook
 ├── tests/                        # pytest suite
 ├── outputs/                      # Plots (tracked) and CSVs (generated, git-ignored)
-├── end_user.go, go.mod, go.sum   # Experimental Go chart server (not maintained)
+├── end_user.go, go.mod, go.sum   # Go chart server: top customers by retention uplift
+├── end_user_test.go              # Go tests
 ├── requirements.txt              # Pinned runtime dependencies
 ├── requirements-dev.txt          # + pytest
 ├── pytest.ini
@@ -245,7 +258,7 @@ The suite (`tests/`) checks:
 - [ ] Propensity-aware evaluation (inverse-propensity-weighted Qini)
 - [ ] Probability calibration and PR-AUC for the churn model
 - [ ] Continuous integration
-- [ ] Remove or update the unused helper modules and the Go chart server
+- [x] Repaired the dataset-paper helpers and the Go chart server
 
 ---
 
