@@ -4,7 +4,7 @@
 
 ![Python Version](https://img.shields.io/badge/python-3.12-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Tests](https://img.shields.io/badge/tests-pytest-brightgreen.svg)
+[![tests](https://github.com/atrearyanuf/Churn-Prediction-and-Recommendation-System-with-Uplift-Modeling/actions/workflows/tests.yml/badge.svg)](https://github.com/atrearyanuf/Churn-Prediction-and-Recommendation-System-with-Uplift-Modeling/actions/workflows/tests.yml)
 
 **A causal-inference pipeline that moves customer retention from "who will churn?" to "who will respond to an offer?", and says plainly when the data cannot answer the second question.**
 
@@ -225,6 +225,8 @@ pytest          # Python suite
 go test ./...   # Go chart server
 ```
 
+Both run on every push via GitHub Actions (`.github/workflows/tests.yml`).
+
 The Python suite (`tests/`) checks:
 
 - **Qini implementation:** it matches `causalml.metrics.get_qini` and `qini_score(normalize=False)`, ignores row order for tied scores, gives exactly 0 for a constant score and rejects invalid input.
@@ -284,7 +286,7 @@ The Go tests check the CSV parsing (columns found by name, bad input rejected) a
 - [x] Repeated cross-validation for uplift model selection
 - [x] Propensity-aware evaluation (inverse-propensity-weighted Qini)
 - [x] Probability calibration and PR-AUC for the churn model
-- [ ] Continuous integration
+- [x] Continuous integration (GitHub Actions: pytest and go test on every push)
 - [x] Repaired the dataset-paper helpers and the Go chart server
 
 ---
