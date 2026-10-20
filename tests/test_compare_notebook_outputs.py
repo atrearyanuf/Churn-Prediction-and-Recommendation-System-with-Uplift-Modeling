@@ -43,3 +43,18 @@ def test_different_cell_count_is_reported(tmp_path):
     b = write_notebook(tmp_path / "b.ipynb", ["x\n", "y\n"])
 
     assert differences(a, b) == ["code cell count differs: 1 committed vs 2 fresh"]
+
+
+def test_last_digit_float_noise_is_tolerated(tmp_path):
+    # float32 predictions can differ in the last bit between macOS and Linux
+    a = write_notebook(tmp_path / "a.ipynb", ["353  0.681224  1049.958296  Persuadable\n"])
+    b = write_notebook(tmp_path / "b.ipynb", ["353  0.681224  1049.958205  Persuadable\n"])
+
+    assert differences(a, b) == []
+
+
+def test_changed_text_with_equal_numbers_is_reported(tmp_path):
+    a = write_notebook(tmp_path / "a.ipynb", ["Selected by cross-validation: X-Learner\n"])
+    b = write_notebook(tmp_path / "b.ipynb", ["Selected by cross-validation: S-Learner\n"])
+
+    assert len(differences(a, b)) == 1

@@ -3,14 +3,18 @@
 Usage: python tools/compare_notebook_outputs.py COMMITTED.ipynb FRESH.ipynb
 
 Compares what every code cell printed to stdout. Timings, stderr (library
-warnings) and rich outputs (plots, progress widgets) are ignored.
+warnings) and rich outputs (plots, progress widgets) are ignored. Numbers may
+differ by a relative 1e-6: XGBoost's float32 predictions can differ in the last
+bit between macOS and Linux.
 """
 import difflib
 import json
+import math
 import re
 import sys
 
 TIMING = re.compile(r"(completed in|calculated in) [\d.]+s")
+NUMBER = re.compile(r"[-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?")
 
 
 def printed_output(path):
@@ -24,6 +28,19 @@ def printed_output(path):
     ]
 
 
+def same_line(a, b, rel_tol=1e-6):
+    """Equal text, and every number equal up to `rel_tol`."""
+    if NUMBER.sub("#", a) != NUMBER.sub("#", b):
+        return False
+    return all(math.isclose(float(x), float(y), rel_tol=rel_tol, abs_tol=1e-9)
+               for x, y in zip(NUMBER.findall(a), NUMBER.findall(b)))
+
+
+def same_output(a, b):
+    a, b = a.splitlines(), b.splitlines()
+    return len(a) == len(b) and all(same_line(x, y) for x, y in zip(a, b))
+
+
 def differences(committed, fresh):
     old, new = printed_output(committed), printed_output(fresh)
     if len(old) != len(new):
@@ -31,7 +48,7 @@ def differences(committed, fresh):
     return [
         f"code cell {i}:\n" + "\n".join(difflib.unified_diff(
             a.splitlines(), b.splitlines(), "committed", "fresh", lineterm="", n=1))
-        for i, (a, b) in enumerate(zip(old, new)) if a != b
+        for i, (a, b) in enumerate(zip(old, new)) if not same_output(a, b)
     ]
 
 
