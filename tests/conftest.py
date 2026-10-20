@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 
@@ -31,8 +33,9 @@ def campaign():
 def simulate_confounded_campaign(n, seed):
     """Campaign where high-risk customers (large x0) are treated more often.
 
-    Returns X, the true propensity, t, y (y = 1 means churn) and the true
-    retention uplift per customer (x1 > 0 persuadable, otherwise sleeping dog).
+    Returns a namespace with X, the true propensity, t, y (y = 1 means churn),
+    the true retention probabilities without/with the offer (mu0, mu1) and the
+    true retention uplift (x1 > 0 persuadable, otherwise sleeping dog).
     """
     rng = np.random.default_rng(seed)
     X = rng.normal(size=(n, 3))
@@ -45,4 +48,5 @@ def simulate_confounded_campaign(n, seed):
         return 1 / (1 + np.exp(-logit))
 
     y = (rng.random(n) < churn_prob(t)).astype(int)
-    return X, propensity, t, y, churn_prob(0) - churn_prob(1)
+    mu0, mu1 = 1 - churn_prob(0), 1 - churn_prob(1)
+    return SimpleNamespace(X=X, propensity=propensity, t=t, y=y, mu0=mu0, mu1=mu1, uplift=mu1 - mu0)

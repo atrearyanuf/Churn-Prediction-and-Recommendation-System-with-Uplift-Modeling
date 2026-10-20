@@ -3,7 +3,10 @@ import pandas as pd
 import pytest
 from causalml.metrics import get_qini, qini_score
 
-from functions.eval_measures import bootstrap_qini, ipw_weights, qini_coefficient, qini_curve
+from functions.eval_measures import (
+    aipw_pseudo_outcomes, bootstrap_dr_qini, bootstrap_qini, dr_qini_coefficient,
+    ipw_weights, qini_coefficient, qini_curve,
+)
 from tests.conftest import simulate_confounded_campaign
 
 
@@ -99,7 +102,8 @@ def test_ipw_qini_removes_confounding_bias():
     # noisy (~10% per sample here), so compare average errors over 10 samples.
     naive_err, ipw_err = [], []
     for seed in range(10):
-        X, propensity, t, y, uplift = simulate_confounded_campaign(50000, seed)
+        c = simulate_confounded_campaign(50000, seed)
+        X, propensity, t, y, uplift = c.X, c.propensity, c.t, c.y, c.uplift
         score = X[:, 0] + X[:, 1]
         truth = true_qini(t, score, uplift)
         naive_err.append(qini_coefficient(1 - y, t, score) / truth - 1)
@@ -110,7 +114,8 @@ def test_ipw_qini_removes_confounding_bias():
 
 
 def test_weighted_bootstrap_resamples_weights_with_rows():
-    _, propensity, t, y, uplift = simulate_confounded_campaign(4000, seed=1)
+    c = simulate_confounded_campaign(4000, seed=1)
+    propensity, t, y, uplift = c.propensity, c.t, c.y, c.uplift
     w = ipw_weights(t, propensity)
     estimate, lower, upper = bootstrap_qini(1 - y, t, uplift, w, n_boot=200)
 
@@ -140,3 +145,76 @@ def test_bootstrap_interval_covers_zero_for_a_useless_model(campaign):
     _, lower, upper = bootstrap_qini(1 - y, t, noise, n_boot=200)
 
     assert lower < 0 < upper
+
+
+# -- doubly-robust Qini ------------------------------------------------------
+
+def test_aipw_pseudo_outcomes_are_unbiased_for_the_effect():
+    c = simulate_confounded_campaign(200000, seed=2)
+    psi = aipw_pseudo_outcomes(1 - c.y, c.t, c.mu0, c.mu1, c.propensity)
+
+    assert psi.mean() == pytest.approx(c.uplift.mean(), abs=0.005)
+
+
+def test_dr_qini_with_true_effects_is_the_true_qini(campaign):
+    _, t, y, effect = campaign
+    uplift = -effect
+    score = uplift + np.random.default_rng(5).normal(scale=0.05, size=len(t))
+
+    assert dr_qini_coefficient(t, score, uplift) == pytest.approx(true_qini(t, score, uplift))
+
+
+def test_dr_qini_constant_score_is_random_targeting(campaign):
+    _, t, y, effect = campaign
+    assert dr_qini_coefficient(t, np.zeros(len(t)), -effect) == pytest.approx(0, abs=1e-12)
+
+
+@pytest.mark.parametrize("outcome_models, propensity_model", [
+    ("true", "true"),
+    ("wrong", "true"),   # double robustness: a correct propensity is enough ...
+    ("true", "wrong"),   # ... and so are correct outcome models
+])
+def test_dr_qini_is_unbiased_if_either_model_is_right(outcome_models, propensity_model):
+    errors = []
+    for seed in range(10):
+        c = simulate_confounded_campaign(50000, seed)
+        score = c.X[:, 0] + c.X[:, 1]
+        mu0, mu1 = (c.mu0, c.mu1) if outcome_models == "true" else (np.full(len(c.t), 0.7), np.full(len(c.t), 0.7))
+        p = c.propensity if propensity_model == "true" else np.full(len(c.t), 0.5)
+        psi = aipw_pseudo_outcomes(1 - c.y, c.t, mu0, mu1, p)
+        errors.append(dr_qini_coefficient(c.t, score, psi) / true_qini(c.t, score, c.uplift) - 1)
+
+    assert abs(np.mean(errors)) < 0.1
+
+
+def test_dr_qini_is_less_noisy_than_ipw_with_good_outcome_models():
+    dr, ipw = [], []
+    for seed in range(10):
+        c = simulate_confounded_campaign(50000, seed)
+        score = c.X[:, 0] + c.X[:, 1]
+        truth = true_qini(c.t, score, c.uplift)
+        psi = aipw_pseudo_outcomes(1 - c.y, c.t, c.mu0, c.mu1, c.propensity)
+        dr.append(dr_qini_coefficient(c.t, score, psi) / truth)
+        ipw.append(qini_coefficient(1 - c.y, c.t, score, ipw_weights(c.t, c.propensity)) / truth)
+
+    assert np.std(dr) < np.std(ipw)
+
+
+def test_dr_bootstrap_is_reproducible_and_brackets_the_estimate():
+    c = simulate_confounded_campaign(4000, seed=3)
+    psi = aipw_pseudo_outcomes(1 - c.y, c.t, c.mu0, c.mu1, c.propensity)
+    result = bootstrap_dr_qini(c.t, c.uplift, psi, n_boot=200, seed=1)
+
+    assert result == bootstrap_dr_qini(c.t, c.uplift, psi, n_boot=200, seed=1)
+    assert result[1] <= result[0] <= result[2]
+    assert result[0] == dr_qini_coefficient(c.t, c.uplift, psi)
+
+
+@pytest.mark.parametrize("mu0, p, message", [
+    ([0.5, np.nan], [0.5, 0.5], "finite"),
+    ([0.5, 0.5], [0.0, 0.5], "strictly between 0 and 1"),
+    ([0.5], [0.5, 0.5], "same length"),
+])
+def test_aipw_rejects_invalid_input(mu0, p, message):
+    with pytest.raises(ValueError, match=message):
+        aipw_pseudo_outcomes([1, 0], [1, 0], mu0, [0.5, 0.5], p)

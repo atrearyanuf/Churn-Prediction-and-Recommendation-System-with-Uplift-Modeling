@@ -118,21 +118,77 @@ def qini_coefficient(y, t, score, weights=None):
     q = qini_curve(y, t, score, weights)
     return float((q - np.linspace(0.0, q[-1], len(q))).mean())
 
-def bootstrap_qini(y, t, score, weights=None, n_boot=1000, alpha=0.05, seed=0):
-    """Qini coefficient with a percentile bootstrap confidence interval.
-
-    Treated and control customers are resampled separately, so every replicate
-    keeps the original arm sizes. Returns (estimate, lower, upper); an interval
-    that contains 0 means the model is not distinguishable from random targeting.
-    """
-    y, t, score = np.asarray(y), np.asarray(t), np.asarray(score)
-    w = np.ones(len(y)) if weights is None else np.asarray(weights, dtype=float)
-    estimate = qini_coefficient(y, t, score, w)
+def _bootstrap(statistic, t, n_boot, alpha, seed):
+    """Percentile interval of statistic(rows), resampling treated and control
+    customers separately so every replicate keeps the original arm sizes."""
     rng = np.random.default_rng(seed)
     treated, control = np.flatnonzero(t == 1), np.flatnonzero(t == 0)
     replicates = np.empty(n_boot)
     for b in range(n_boot):
-        i = np.r_[rng.choice(treated, len(treated)), rng.choice(control, len(control))]
-        replicates[b] = qini_coefficient(y[i], t[i], score[i], w[i])
+        replicates[b] = statistic(np.r_[rng.choice(treated, len(treated)), rng.choice(control, len(control))])
     lower, upper = np.quantile(replicates, [alpha / 2, 1 - alpha / 2])
-    return estimate, float(lower), float(upper)
+    return float(lower), float(upper)
+
+def bootstrap_qini(y, t, score, weights=None, n_boot=1000, alpha=0.05, seed=0):
+    """Qini coefficient with a percentile bootstrap confidence interval.
+
+    Returns (estimate, lower, upper); an interval that contains 0 means the
+    model is not distinguishable from random targeting.
+    """
+    y, t, score = np.asarray(y), np.asarray(t), np.asarray(score)
+    w = np.ones(len(y)) if weights is None else np.asarray(weights, dtype=float)
+    estimate = qini_coefficient(y, t, score, w)
+    lower, upper = _bootstrap(lambda i: qini_coefficient(y[i], t[i], score[i], w[i]), t, n_boot, alpha, seed)
+    return estimate, lower, upper
+
+def aipw_pseudo_outcomes(y, t, mu0, mu1, propensity):
+    """Doubly-robust (AIPW) estimate of each customer's treatment effect on y.
+
+    mu0 and mu1 are predicted outcomes without and with treatment (from models
+    not trained on these customers). The average is unbiased if either the
+    outcome models or the propensity scores are correct.
+    """
+    y, t, mu0, mu1, p = (np.asarray(a, dtype=float) for a in (y, t, mu0, mu1, propensity))
+    if not (y.ndim == 1 and y.shape == t.shape == mu0.shape == mu1.shape == p.shape):
+        raise ValueError("y, t, mu0, mu1 and propensity must be 1-D arrays of the same length")
+    if not all(np.isfinite(a).all() for a in (y, mu0, mu1)):
+        raise ValueError("y, mu0 and mu1 must be finite")
+    if not ((p > 0) & (p < 1)).all():
+        raise ValueError("propensity must lie strictly between 0 and 1")
+    return mu1 - mu0 + t * (y - mu1) / p - (1 - t) * (y - mu0) / (1 - p)
+
+def dr_qini_curve(t, score, effects):
+    """Qini curve from per-customer effect estimates (e.g. aipw_pseudo_outcomes):
+    q(k) = n_t(k) * mean effect among the top k, for k = 0..N.
+
+    Same scale and tie handling as qini_curve; with the true effects it is the
+    true Qini curve.
+    """
+    t = np.asarray(t, dtype=float)
+    score = np.asarray(score, dtype=float)
+    effects = np.asarray(effects, dtype=float)
+    if not (t.ndim == score.ndim == effects.ndim == 1 and len(t) == len(score) == len(effects)):
+        raise ValueError("t, score and effects must be 1-D arrays of the same length")
+    if not np.isin(t, (0, 1)).all():
+        raise ValueError("t must be binary (0 = control, 1 = treated)")
+    if not (np.isfinite(score).all() and np.isfinite(effects).all()):
+        raise ValueError("score and effects must be finite")
+
+    order = np.argsort(-score, kind="stable")
+    t, score, effects = t[order], score[order], effects[order]
+    k = np.arange(1, len(t) + 1)
+    anchor = np.r_[score[1:] != score[:-1], True]
+    q = np.cumsum(t)[anchor] * np.cumsum(effects)[anchor] / k[anchor]
+    return np.interp(np.arange(len(t) + 1), np.r_[0, k[anchor]], np.r_[0.0, q])
+
+def dr_qini_coefficient(t, score, effects):
+    """Mean gap between the DR Qini curve and the random-targeting line."""
+    q = dr_qini_curve(t, score, effects)
+    return float((q - np.linspace(0.0, q[-1], len(q))).mean())
+
+def bootstrap_dr_qini(t, score, effects, n_boot=1000, alpha=0.05, seed=0):
+    """DR Qini coefficient with a percentile bootstrap confidence interval."""
+    t, score, effects = np.asarray(t), np.asarray(score), np.asarray(effects)
+    estimate = dr_qini_coefficient(t, score, effects)
+    lower, upper = _bootstrap(lambda i: dr_qini_coefficient(t[i], score[i], effects[i]), t, n_boot, alpha, seed)
+    return estimate, lower, upper
