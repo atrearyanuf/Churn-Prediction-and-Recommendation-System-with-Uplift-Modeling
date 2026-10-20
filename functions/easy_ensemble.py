@@ -1,5 +1,5 @@
 from functools import reduce
-from copy import copy
+from copy import deepcopy
 from joblib import Parallel, delayed
 import numpy as np
 from numpy.random import default_rng
@@ -13,26 +13,27 @@ class EasyEnsemble:
         self.verbose = verbose
         self.n_jobs = n_jobs
     
-    def _compute_fold(self, i, indices_1, data, N_0, N_1, *args, **kwargs):
-        indices_0 = self.rng.integers(low=0, high=N_0, size=N_1)
-        indices = np.hstack((indices_1, indices_0))
-        self.rng.shuffle(indices)
-        data_i = data[indices]
-        model = copy(self.base_model)
-        model.fit(data_i, *args, **kwargs)
+    def _compute_fold(self, indices, data, *args, **kwargs):
+        # deepcopy: a shallow copy shares the wrapped estimator between folds
+        model = deepcopy(self.base_model)
+        model.fit(data[indices], *args, **kwargs)
         return {"model": model, "training_indices": indices}
     
     def fit(self, data, *args, **kwargs):
-        mask_1 = data.y == 1
-        indices_1 = np.arange(mask_1.shape[0])[mask_1]
-        N_0 = np.sum(data.y == 0)
-        N_1 = np.sum(data.y == 1)
+        indices_1 = np.flatnonzero(data.y == 1)
+        indices_0 = np.flatnonzero(data.y == 0)
         if self.verbose:
-            print("{} negative samples and {} positive samples".format(N_0, N_1))
+            print("{} negative samples and {} positive samples".format(len(indices_0), len(indices_1)))
+        # Draw every fold here: parallel workers each get a copy of self.rng in
+        # the same state and would all draw the same sample.
+        folds = [
+            self.rng.permutation(np.hstack((indices_1, self.rng.choice(indices_0, size=len(indices_1)))))
+            for _ in range(self.n_folds)
+        ]
         self.models = Parallel(
             n_jobs=self.n_jobs,
             verbose=10 if self.verbose else 0
-        )(delayed(self._compute_fold)(i, indices_1, data, N_0, N_1, *args, **kwargs) for i in range(self.n_folds))
+        )(delayed(self._compute_fold)(indices, data, *args, **kwargs) for indices in folds)
     
     def predict(self, data, *args, **kwargs):
         # Use a lambda to reduce the predictions.

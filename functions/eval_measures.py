@@ -28,7 +28,7 @@ def profit_curve(y, t, score, CB=np.array([[1, 1], [0, 0]])):
     CB_00, CB_01, CB_10, CB_11 = extract_cb(CB)
 
     grid = pd.DataFrame(data={
-        "k": np.arange(N),
+        "k": np.arange(1, N + 1),
         "n_1": np.cumsum(t),
         "n_0": np.cumsum(1 - t),
         "score": score,

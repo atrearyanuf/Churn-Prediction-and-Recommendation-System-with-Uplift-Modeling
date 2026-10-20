@@ -6,12 +6,11 @@ from functions.easy_ensemble import EasyEnsemble
 
 
 def generate_splits(N, k_folds, n_repeats, rng):
+    # array_split spreads the N % k_folds leftover customers over the folds,
+    # so every customer is in exactly one test fold per repeat.
     res = []
-    fold_size = N // k_folds
     for i in range(n_repeats):
-        I = rng.permutation(N)
-        for j in range(k_folds):
-            res.append(I[j * fold_size : min((j + 1) * fold_size, N)])
+        res.extend(np.array_split(rng.permutation(N), k_folds))
     return res
 
 def get_splits_from_results(past_results):

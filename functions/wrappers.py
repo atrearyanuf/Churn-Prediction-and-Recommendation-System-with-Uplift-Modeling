@@ -8,21 +8,24 @@ class RandomForestWrapper:
         self.model = RandomForestClassifier(*args, **kwargs)
     
     def fit(self, data, *args, **kwargs):
-        # Train on control group only
-        return self.model.fit(data.X[~data.t], data.y[~data.t], *args, **kwargs)
+        # Train on control group only (t may be bool or 0/1)
+        control = data.t == 0
+        return self.model.fit(data.X[control], data.y[control], *args, **kwargs)
     
     def predict(self, data, *args, **kwargs):
         return self.model.predict_proba(data.X, *args, **kwargs)[:, 1]
 
-class SLearnerWrapper:
+class TLearnerWrapper:
+    """Two-model learner: one random forest per arm."""
     def __init__(self, *args, **kwargs):
         self.model_0 = RandomForestClassifier(*args, **kwargs)
         self.model_1 = RandomForestClassifier(*args, **kwargs)
     
     def fit(self, data, *args, **kwargs):
+        control, treated = data.t == 0, data.t == 1
         return (
-            self.model_0.fit(data.X[~data.t], data.y[~data.t], *args, **kwargs),
-            self.model_1.fit(data.X[data.t], data.y[data.t], *args, **kwargs)
+            self.model_0.fit(data.X[control], data.y[control], *args, **kwargs),
+            self.model_1.fit(data.X[treated], data.y[treated], *args, **kwargs)
         )
     
     def predict(self, data, *args, **kwargs):
