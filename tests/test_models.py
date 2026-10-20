@@ -79,3 +79,14 @@ def test_no_xgboost_model_uses_column_sampling():
 
 def test_uplift_forest_uses_string_treatment_labels():
     assert make_uplift_forest().control_name == "0"
+
+
+def test_dr_learner_cross_fitting_is_reproducible():
+    from tests.conftest import simulate_campaign
+    X, t, y, _ = simulate_campaign(3000, seed=0)
+    p = np.full(len(t), t.mean())
+    first, second = make_uplift_learners()["DR-Learner"], make_uplift_learners()["DR-Learner"]
+    first.fit(X, treatment=t, y=y, p=p)
+    second.fit(X, treatment=t, y=y, p=p)
+
+    np.testing.assert_array_equal(first.predict(X), second.predict(X))

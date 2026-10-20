@@ -71,6 +71,18 @@ def _regularised_xgb(cls, random_state):
     return cls(max_depth=3, min_child_weight=10, **_xgb_params(random_state))
 
 
+class SeededDRClassifier(BaseDRClassifier):
+    """CausalML DR-Learner with reproducible cross-fitting folds (CausalML
+    draws them at random unless fit() is given a seed)."""
+
+    def __init__(self, seed, **kwargs):
+        super().__init__(**kwargs)
+        self.seed = seed
+
+    def fit(self, X, treatment, y, p=None, seed=None):
+        return super().fit(X, treatment, y, p=p, seed=self.seed if seed is None else seed)
+
+
 def make_uplift_learners(random_state=RANDOM_STATE):
     """Uplift learners, each predicting the churn effect P(churn|T) - P(churn|C).
 
@@ -85,7 +97,8 @@ def make_uplift_learners(random_state=RANDOM_STATE):
         "X-Learner": BaseXClassifier(
             outcome_learner=XGBClassifier(max_depth=6, **params),
             effect_learner=XGBRegressor(max_depth=4, **params)),
-        "DR-Learner": BaseDRClassifier(
+        "DR-Learner": SeededDRClassifier(
+            seed=random_state,
             learner=_regularised_xgb(XGBClassifier, random_state),
             treatment_effect_learner=XGBRegressor(max_depth=3, min_child_weight=20, **params)),
     }
