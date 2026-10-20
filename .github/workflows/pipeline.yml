@@ -50,10 +50,12 @@ jobs:
       - uses: actions/checkout@v4
       - run: docker build -t churn-uplift .
       - run: docker run --rm churn-uplift --help
+      # A random sample: the raw file is ordered, so its first rows are not a
+      # representative batch and monitor rightly reports drift for them.
       - name: Train, score and monitor inside the image
         run: >
           docker run --rm --entrypoint sh churn-uplift -c '
           python -m churn_uplift train &&
-          python -c "import pandas as pd; pd.read_parquet(\"data/churn_uplift_anonymized.parquet\").drop(columns=[\"y\", \"t\"]).head(500).to_csv(\"batch.csv\", index=False)" &&
+          python -c "import pandas as pd; pd.read_parquet(\"data/churn_uplift_anonymized.parquet\").drop(columns=[\"y\", \"t\"]).sample(2000, random_state=0).to_csv(\"batch.csv\", index=False)" &&
           python -m churn_uplift score batch.csv &&
           python -m churn_uplift monitor batch.csv'
