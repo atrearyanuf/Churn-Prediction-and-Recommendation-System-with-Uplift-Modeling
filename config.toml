@@ -1,0 +1,22 @@
+# Settings for the batch pipeline: python -m churn_uplift {train,score,monitor}
+
+[data]
+# Training data with PC*/FACTOR* feature columns plus y (churn) and t (offer).
+# Leave `path` out to download the published dataset into `cache`.
+# path = "data/my_campaign.parquet"
+cache = "data/churn_uplift_anonymized.parquet"
+
+[artifacts]
+dir = "artifacts"
+
+[business]
+offer_cost = 40         # $ per contacted customer
+customer_value = 1600   # $ value of a retained customer
+
+[cv]
+folds = 5
+repeats = 2
+
+[drift]
+psi_threshold = 0.2
+report = "outputs/drift_report.csv"

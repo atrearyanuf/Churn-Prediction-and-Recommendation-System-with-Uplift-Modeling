@@ -19,3 +19,6 @@ prepared_*.pickle
 # OS / tooling
 .DS_Store
 .pytest_cache/
+
+# Trained models (python -m churn_uplift train)
+artifacts/

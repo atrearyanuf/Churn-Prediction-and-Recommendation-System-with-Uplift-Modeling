@@ -50,3 +50,15 @@ def simulate_confounded_campaign(n, seed):
     y = (rng.random(n) < churn_prob(t)).astype(int)
     mu0, mu1 = 1 - churn_prob(0), 1 - churn_prob(1)
     return SimpleNamespace(X=X, propensity=propensity, t=t, y=y, mu0=mu0, mu1=mu1, uplift=mu1 - mu0)
+
+
+def synthetic_customers(n, seed):
+    """Campaign data with the real dataset's layout: PC* numbers, FACTOR* categories, y, t."""
+    X, t, y, _ = simulate_campaign(n, seed)
+    rng = np.random.default_rng(seed + 100)
+    frame = {f"PC{i + 1}": X[:, i] for i in range(X.shape[1])}
+    frame["FACTOR1"] = np.where(X[:, 2] > 0.5, "V1", np.where(X[:, 2] > -0.5, "V2", "V3"))
+    frame["FACTOR2"] = rng.choice(["A", "B"], n)
+    frame["y"], frame["t"] = y, t
+    import pandas as pd
+    return pd.DataFrame(frame)
