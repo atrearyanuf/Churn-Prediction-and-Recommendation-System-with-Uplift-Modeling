@@ -28,7 +28,7 @@ def test_offer_only_when_expected_profit_is_positive():
     recs = recommend(
         churn_probability=[0.3, 0.3, 0.9, 0.9],
         uplift=[0.10, 0.02, -0.10, 0.0],
-        customer_value=1000, offer_cost=40,
+        customer_value=1000, offer_cost=40, validated=True,
     ).set_index("customer_index")
 
     np.testing.assert_allclose(recs["expected_profit"].sort_index(), [60, -20, -140, -40])
@@ -39,14 +39,14 @@ def test_offer_only_when_expected_profit_is_positive():
 def test_high_churn_risk_alone_never_earns_an_offer():
     # The old priority score rewarded churn probability; a sleeping dog with
     # 90% churn risk must still not be targeted.
-    recs = recommend([0.9], [-0.2], customer_value=1000, offer_cost=40)
+    recs = recommend([0.9], [-0.2], customer_value=1000, offer_cost=40, validated=True)
 
     assert recs.loc[0, "recommended_intervention"] == "No_Action"
     assert recs.loc[0, "segment"] == "Sleeping_Dog"
 
 
 def test_recommendations_are_ranked_and_traceable():
-    recs = recommend([0.1, 0.2, 0.3], [-0.05, 0.30, 0.10], customer_value=500, offer_cost=10)
+    recs = recommend([0.1, 0.2, 0.3], [-0.05, 0.30, 0.10], customer_value=500, offer_cost=10, validated=True)
 
     assert recs["customer_index"].tolist() == [1, 2, 0]
     assert recs["expected_profit"].is_monotonic_decreasing
@@ -55,6 +55,21 @@ def test_recommendations_are_ranked_and_traceable():
 
 def test_recommend_rejects_mismatched_lengths():
     with pytest.raises(ValueError, match="one value per customer"):
-        recommend([0.1, 0.2], [0.1], customer_value=100, offer_cost=1)
+        recommend([0.1, 0.2], [0.1], customer_value=100, offer_cost=1, validated=True)
     with pytest.raises(ValueError, match="one value per customer"):
-        recommend([0.1], [[0.1]], customer_value=100, offer_cost=1)
+        recommend([0.1], [[0.1]], customer_value=100, offer_cost=1, validated=True)
+
+
+def test_no_offers_when_the_model_is_not_validated():
+    # A model that does not beat random targeting must not spend the budget,
+    # but its estimates stay visible for analysis.
+    recs = recommend([0.3, 0.3], [0.10, -0.10], customer_value=1000, offer_cost=40, validated=False)
+
+    assert (recs["recommended_intervention"] == "No_Action").all()
+    np.testing.assert_allclose(recs["expected_profit"], [60, -140])
+    assert recs["segment"].tolist() == ["Persuadable", "Sleeping_Dog"]
+
+
+def test_validation_status_must_be_stated():
+    with pytest.raises(TypeError):
+        recommend([0.3], [0.1], customer_value=1000, offer_cost=40)

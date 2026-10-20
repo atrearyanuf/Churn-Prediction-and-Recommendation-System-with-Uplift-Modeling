@@ -33,11 +33,11 @@ This project builds both stages on a real retention campaign:
 
 ### Key Results
 
-All numbers below are printed by `Churn_Uplift_COMPLETE.ipynb`; `tests/test_readme.py` fails if they drift apart.
+All numbers below are printed by `Churn_Uplift_COMPLETE.ipynb`. `tests/test_readme.py` fails if they drift apart, and a weekly CI job re-runs the notebook on Linux to check that it still prints them.
 
-- **Churn prediction:** XGBoost reaches test AUC 0.814, PR-AUC 0.191 (random ranking: 0.035) and F1 0.250 on a 28:1 class imbalance. After calibration its mean predicted churn on test is 0.0359, against an actual 0.0345.
-- **Uplift modeling:** in repeated cross-validation, every learner's mean out-of-fold IPW Qini is negative, and none beats random targeting in more than 40% of splits. The selected S-Learner scores test IPW Qini +10.14 (95% CI -4.05 to +26.42), so it is not distinguishable from random. Without the propensity correction, its test Qini would be +12.10 (95% CI +1.28 to +23.90), which looks significant. Its estimated effects (at most 0.017) are also below the 0.025 break-even uplift.
-- **Recommendation:** with an assumed $1,600 customer value and $40 offer cost, the pipeline recommends **no offers**. That is the correct decision when the measured effect is this small.
+- **Churn prediction:** XGBoost reaches test AUC 0.802, PR-AUC 0.197 (random ranking: 0.035) and F1 0.249 on a 28:1 class imbalance. After calibration its mean predicted churn on test is 0.0333, against an actual 0.0345.
+- **Uplift modeling:** no learner reliably beats random targeting. In repeated cross-validation the best mean out-of-fold IPW Qini is +0.46 (X-Learner), with a standard error of 1.81. The selected X-Learner scores test IPW Qini -4.02 (95% CI -13.94 to +8.62) and test Qini -2.45 (95% CI -11.61 to +7.71).
+- **Recommendation:** the X-Learner's estimates would send offers to 778 of the 2,379 validation customers. Because the model fails validation, a safety gate recommends **no offers**: spending the budget on an unvalidated model is not justified.
 - **Why:** the offer lowers churn by only 0.25 percentage points on average (3.64% control vs 3.39% treated in validation), the training set has 244 churners (63 in the control arm), and treatment probability depends on customer features (propensity AUC 0.631).
 
 ---
@@ -61,7 +61,7 @@ All numbers below are printed by `Churn_Uplift_COMPLETE.ipynb`; `tests/test_read
  │ Evaluation: tie-aware Qini and IPW Qini on retention, 95% bootstrap CI │
  │ Selection:  repeated cross-validation (5 folds × 2 repeats)            │
  │ Targeting:  expected profit = value × retention uplift − offer cost    │
- │             offer only if expected profit > 0                          │
+ │             offer only if profit > 0 and the model beats random        │
  └────────────┬───────────────────────────────────────────────────────────┘
               ▼
    outputs/ (CSV + plots)  →  Streamlit dashboard,  SHAP explanations
@@ -85,6 +85,8 @@ The outcome is churn (`y = 1` is bad). CausalML learners return the **churn effe
 - **No oversampling for uplift models.** Oversampling each arm to 15% churners inflates churn odds by a different factor per arm, which biases the estimated effect.
 - **Propensity weighting (IPW Qini).** Treatment probability varies with customer features, so the plain Qini compares treated and control customers who differ in more than the offer. Weighting each customer by 1/p if treated, or 1/(1 − p) if not, corrects this. On a simulated confounded campaign, the plain Qini is off by −54% on average and the weighted one by −0.3%.
 - **Model selection by repeated cross-validation.** A single validation split cannot separate the models (CI widths around ±12). The pipeline selects the model with the highest mean out-of-fold IPW Qini over 5 folds × 2 repeats of train + validation. The copy trained on the training set is then evaluated once on test.
+- **Safety gate.** Offers are recommended only if the selected model's validation IPW Qini CI lies above 0. Otherwise every customer gets No_Action, and the model's estimates are kept in the output for analysis.
+- **Platform-independent XGBoost.** XGBoost's column subsampling (`colsample_bytree`) uses a C++ standard-library shuffle that gives different results on macOS and Linux, so it is not used; row subsampling is reproducible. The weekly notebook job runs on Linux and compares its output with results produced on macOS.
 - **Calibrated churn probabilities.** Class weighting inflates predicted churn. Platt scaling, fitted on validation, maps the predictions back to churn rates. It is monotone, so AUC and threshold decisions are unchanged. The recommendations and the dashboard show calibrated probabilities.
 
 ---
@@ -99,15 +101,15 @@ The decision threshold is chosen for F1 on the validation set.
 |-------|-------|-----|--------|----|-----------|--------|
 | Random Forest | validation | 0.822 | 0.196 | 0.250 | 0.197 | 0.341 |
 | LightGBM | validation | 0.825 | 0.176 | 0.294 | 0.344 | 0.256 |
-| **XGBoost** (selected by AUC) | validation | 0.828 | 0.164 | 0.276 | 0.222 | 0.366 |
-| **XGBoost** | **test** | **0.814** | **0.191** | **0.250** | **0.190** | **0.366** |
+| **XGBoost** (selected by AUC) | validation | 0.842 | 0.194 | 0.295 | 0.222 | 0.439 |
+| **XGBoost** | **test** | **0.802** | **0.197** | **0.249** | **0.186** | **0.378** |
 
-PR-AUC of a random ranking equals the churn rate (0.035). Random Forest has the best validation PR-AUC, but the model is selected by AUC.
+PR-AUC of a random ranking equals the churn rate (0.035). XGBoost's validation AUC of 0.842 falls to 0.802 on test, so selecting on a single validation split flatters it.
 
 | Calibration on test | Raw | Calibrated | Actual |
 |---------------------|-----|------------|--------|
-| Mean predicted churn | 0.0494 | 0.0359 | 0.0345 |
-| Brier score | 0.0324 | 0.0311 | |
+| Mean predicted churn | 0.0479 | 0.0333 | 0.0345 |
+| Brier score | 0.0320 | 0.0309 | |
 
 ### Uplift modeling
 
@@ -117,21 +119,21 @@ Qini is reported on retention, in extra customers retained compared with random 
 
 | Model | Mean Qini | Mean IPW Qini | Std IPW Qini | Splits with IPW Qini > 0 |
 |-------|-----------|---------------|--------------|--------------------------|
-| S-Learner | -0.53 | -0.72 | 2.22 | 20% |
-| X-Learner | -3.44 | -1.72 | 7.49 | 40% |
-| T-Learner | -3.99 | -1.98 | 7.83 | 30% |
+| X-Learner | -0.95 | +0.46 | 5.73 | 40% |
+| S-Learner | -0.17 | +0.03 | 2.34 | 20% |
+| T-Learner | -1.51 | -1.87 | 6.48 | 40% |
 
 **Validation and test:**
 
 | Model | Split | Qini | 95% CI | IPW Qini | 95% CI |
 |-------|-------|------|--------|----------|--------|
-| T-Learner | validation | -6.97 | -18.94 to +5.99 | -9.55 | -30.49 to +8.83 |
-| S-Learner | validation | +5.87 | -3.30 to +16.16 | +1.36 | -10.30 to +13.09 |
-| X-Learner | validation | -4.60 | -15.93 to +6.82 | +0.38 | -13.46 to +15.59 |
+| T-Learner | validation | -6.47 | -17.19 to +5.98 | -10.09 | -30.11 to +8.15 |
+| S-Learner | validation | +0.00 | +0.00 to +0.00 | +0.00 | +0.00 to +0.00 |
+| X-Learner | validation | -2.38 | -14.64 to +9.68 | +1.82 | -15.75 to +18.18 |
 | UpliftRandomForest | validation | -4.10 | -14.30 to +6.74 | -10.91 | -31.16 to +7.59 |
-| **S-Learner** (selected by cross-validation) | **test** | **+12.10** | **+1.28 to +23.90** | **+10.14** | **-4.05 to +26.42** |
+| **X-Learner** (selected by cross-validation) | **test** | **-2.45** | **-11.61 to +7.71** | **-4.02** | **-13.94 to +8.62** |
 
-No learner beats random targeting on average; the S-Learner is selected as the least bad. Its effects are tiny (std 0.001) because its single model barely uses the treatment column. The X-Learner labels 37.8% of customers persuadable, but its cross-validated IPW Qini is negative, so those labels are not reliable.
+No learner reliably beats random targeting. The selected X-Learner's cross-validated mean IPW Qini (+0.46) is well within one standard error (1.81) of 0, and its test intervals contain 0. The S-Learner's single model never splits on the treatment column, so its scores are constant and its Qini is exactly 0. The X-Learner labels 36.7% of validation customers persuadable, but those labels are not reliable.
 
 ### Business decision
 
@@ -141,7 +143,7 @@ No learner beats random targeting on average; the S-Learner is selected as the l
 | Value of a retained customer | $1,600 |
 | Break-even retention uplift | 0.025 |
 
-On the 2,379 validation customers, the largest estimated retention uplift is 0.017, so expected profit is negative for everyone and the recommendation is **No_Action** for all of them. These dollar values are planning assumptions, not data from the campaign. Change `OFFER_COST` and `CUSTOMER_VALUE` in section 8 of the notebook to use your own.
+By the X-Learner's estimates, 778 of the 2,379 validation customers are worth an offer, for an estimated net benefit of $61,425. The model does not beat random targeting on validation (its IPW Qini CI contains 0), so the safety gate recommends **No_Action** for everyone. The estimates stay in `outputs/customer_recommendations.csv` for analysis, but no budget is spent on them. The dollar values are planning assumptions, not data from the campaign. Change `OFFER_COST` and `CUSTOMER_VALUE` in section 8 of the notebook to use your own.
 
 > An earlier version of this README reported a Qini of 0.33, 58 targeted customers and a 1,204% ROI. Those figures came from a normalised Qini, a targeting rule with the effect sign inverted, and oversampled training data. They are superseded by the results above.
 
@@ -235,12 +237,12 @@ The Python suite (`tests/`) checks:
 - **Bootstrap intervals:** they are reproducible, contain 0 for a useless model and exclude 0 for a real signal.
 - **IPW Qini:** unit weights reproduce the standard Qini. On a simulated confounded campaign, the weighted Qini is unbiased, while the unweighted one is off by about half.
 - **Cross-validation:** every learner is scored on every split, and only on out-of-fold customers (a learner that memorises its training data scores exactly 0). A real learner ranks above noise.
-- **Targeting:** the retention sign convention holds, offers go out only when profitable, and sleeping dogs are never targeted, even at high churn risk.
+- **Targeting:** the retention sign convention holds, offers go out only when profitable, sleeping dogs are never targeted, even at high churn risk, and nothing is offered when the model is not validated.
 - **End to end:** on a synthetic campaign with a known effect, a T-Learner trained without oversampling targets true persuadables more than 90% of the time.
 - **Dataset loading:** sources are tried in order, a source with different content is skipped, a modified cache is rejected, and the cache keeps floats exact.
 - **Dataset-paper helpers:** cross-validation splits cover every customer, EasyEnsemble folds are balanced and independent (including in parallel), and the wrappers handle 0/1 treatment flags.
 - **Dashboard:** it renders from notebook outputs and explains missing files.
-- **Notebook comparison tool:** it ignores timings, stderr and widgets, and reports changed results by cell.
+- **Notebook comparison tool:** it ignores timings, stderr, widgets and last-digit float noise (relative 1e-6), and reports changed results by cell.
 - **README:** every number above matches the notebook output, and every file path it mentions exists.
 
 The Go tests check the CSV parsing (columns found by name, bad input rejected) and the HTTP handler.

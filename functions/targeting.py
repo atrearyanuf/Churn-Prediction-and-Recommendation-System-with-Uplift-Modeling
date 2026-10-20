@@ -27,13 +27,16 @@ def segment(retention_uplift, threshold=0.02):
                     np.where(u < -threshold, "Sleeping_Dog", "Unaffected"))
 
 
-def recommend(churn_probability, uplift, customer_value, offer_cost, threshold=0.02):
+def recommend(churn_probability, uplift, customer_value, offer_cost, *, validated, threshold=0.02):
     """Rank customers by the expected profit of a retention offer.
 
     `uplift` is retention uplift (see retention_uplift). expected_profit =
     customer_value * uplift - offer_cost, and the offer is recommended only when
-    that is positive. Rows keep their position in the input as `customer_index`
-    and are sorted by expected profit, best first.
+    that is positive and `validated` is True, i.e. the uplift model has been
+    shown to beat random targeting on held-out data. Otherwise every customer
+    gets No_Action and the estimates are kept for analysis. Rows keep their
+    position in the input as `customer_index` and are sorted by expected
+    profit, best first.
     """
     uplift = np.asarray(uplift, dtype=float)
     churn_probability = np.asarray(churn_probability, dtype=float)
@@ -46,6 +49,6 @@ def recommend(churn_probability, uplift, customer_value, offer_cost, threshold=0
         "retention_uplift": uplift,
         "expected_profit": profit,
         "segment": segment(uplift, threshold),
-        "recommended_intervention": np.where(profit > 0, "Retention_Offer", "No_Action"),
+        "recommended_intervention": np.where((profit > 0) & validated, "Retention_Offer", "No_Action"),
     })
     return recs.sort_values("expected_profit", ascending=False, kind="stable").reset_index(drop=True)

@@ -22,7 +22,7 @@ def test_t_learner_targets_persuadables_on_known_campaign():
     _, lower, _ = bootstrap_qini(1 - y_test, t_test, uplift, n_boot=200)
     assert lower > 0
 
-    recs = recommend(np.full(len(y_test), 0.5), uplift, customer_value=1000, offer_cost=40)
+    recs = recommend(np.full(len(y_test), 0.5), uplift, customer_value=1000, offer_cost=40, validated=lower > 0)
     targeted = recs.loc[recs["recommended_intervention"] == "Retention_Offer", "customer_index"]
     assert len(targeted) > 0
     assert (true_effect[targeted] < 0).mean() > 0.9  # almost all are true persuadables

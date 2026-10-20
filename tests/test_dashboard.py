@@ -15,7 +15,7 @@ def test_dashboard_renders_notebook_outputs(tmp_path, monkeypatch):
     pd.DataFrame({"y": [0, 1, 0, 0], "t": [1, 1, 0, 1]}).to_parquet(
         tmp_path / "data" / "churn_uplift_anonymized.parquet", index=False)
     recommend([0.2, 0.8, 0.4, 0.6], [0.10, -0.05, 0.0, 0.03],
-              customer_value=1600, offer_cost=40).to_csv(
+              customer_value=1600, offer_cost=40, validated=True).to_csv(
         tmp_path / "outputs" / "customer_recommendations.csv", index=False)
     pd.DataFrame({"Model": ["T-Learner"], "Qini": [1.0]}).to_csv(
         tmp_path / "outputs" / "uplift_comparison_results.csv", index=False)

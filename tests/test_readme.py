@@ -40,7 +40,7 @@ def test_uplift_results_match_notebook():
     name, qini, low, high, ipw, ipw_low, ipw_high = test[0]
     assert readme_rows(name, "test", qini, f"{low} to {high}", ipw, f"{ipw_low} to {ipw_high}")
     assert f"test IPW Qini {ipw} (95% CI {ipw_low} to {ipw_high})" in README
-    assert f"test Qini would be {qini} (95% CI {low} to {high})" in README
+    assert f"test Qini {qini} (95% CI {low} to {high})" in README
 
 
 def test_cross_validation_results_match_notebook():
@@ -51,6 +51,19 @@ def test_cross_validation_results_match_notebook():
     selected = re.search(r"Selected by cross-validation: (\S+)", VALIDATION).group(1)
     assert rows[0][0] == selected
     assert readme_rows(selected, "selected by cross-validation", "test")
+
+    mean, se = re.search(r"mean IPW Qini is ([+-]\d+\.\d+) ± (\d+\.\d+)", VALIDATION).groups()
+    assert f"best mean out-of-fold IPW Qini is {mean} ({selected}), with a standard error of {se}" in README
+
+
+def test_safety_gate_matches_notebook():
+    offered, benefit = re.search(r"The model would offer (\d+) customers, estimating a net benefit of (\$[\d,]+)",
+                                 VALIDATION).groups()
+    blocked = "SAFETY GATE" in VALIDATION
+
+    assert f"would send offers to {offered} of the" in README
+    assert f"{offered} of the 2,379 validation customers are worth an offer, for an estimated net benefit of {benefit}" in README
+    assert blocked == ("the safety gate recommends **No_Action** for everyone" in README)
 
 
 def test_churn_results_match_notebook():
