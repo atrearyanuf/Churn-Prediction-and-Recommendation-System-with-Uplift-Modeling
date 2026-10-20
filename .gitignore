@@ -16,3 +16,6 @@ prepared_*.pickle
 # Local env
 .env
 .venv/  
+# OS / tooling
+.DS_Store
+.pytest_cache/
