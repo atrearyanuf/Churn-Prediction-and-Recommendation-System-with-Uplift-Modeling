@@ -45,8 +45,8 @@ def test_cv_scores_only_out_of_fold_customers():
     X, t, y, _ = simulate_campaign(1500, seed=0)
     cv = cross_validate_uplift(X, t, y, {"memo": MemorizingLearner()}, k_folds=3, n_repeats=1)
 
-    np.testing.assert_allclose(cv["qini"], 0, atol=1e-12)
-    np.testing.assert_allclose(cv["ipw_qini"], 0, atol=1e-12)
+    for column in ("qini", "ipw_qini", "dr_qini"):
+        np.testing.assert_allclose(cv[column], 0, atol=1e-12)
 
 
 def test_cv_ranks_a_real_learner_above_noise():
@@ -54,9 +54,10 @@ def test_cv_ranks_a_real_learner_above_noise():
     learners = {"T-Learner": UpliftLearner(BaseTClassifier(learner=small_xgb())), "noise": NoiseLearner()}
     summary = summarize_cv(cross_validate_uplift(X, t, y, learners, k_folds=3, n_repeats=1))
 
-    assert summary.index[0] == "T-Learner"
+    assert summary.index[0] == "T-Learner"   # ranked by mean DR Qini
     assert summary.loc["T-Learner", "mean_ipw_qini"] > 0
-    assert summary.loc["T-Learner", "share_ipw_qini_above_0"] == 1.0
+    assert summary.loc["T-Learner", "mean_dr_qini"] > 0
+    assert summary.loc["T-Learner", "share_dr_qini_above_0"] == 1.0
 
 
 def test_uplift_learner_returns_retention_uplift():
@@ -87,3 +88,14 @@ def test_propensity_model_is_clipped():
 
     p = PropensityModel(clip=0.05).fit(data).predict(data)
     assert p.min() == 0.05 and p.max() == 0.95
+
+
+def test_summary_ranks_by_mean_dr_qini():
+    import pandas as pd
+    cv = pd.DataFrame({"model": ["A", "A", "B", "B"], "split": [0, 1, 0, 1], "qini": [0.0] * 4,
+                       "ipw_qini": [5.0, 5.0, -5.0, -5.0], "dr_qini": [-1.0, 1.0, 2.0, 4.0]})
+    summary = summarize_cv(cv)
+
+    assert list(summary.index) == ["B", "A"]
+    assert summary.loc["B", "share_dr_qini_above_0"] == 1.0
+    assert summary.loc["A", "share_dr_qini_above_0"] == 0.5

@@ -11,7 +11,8 @@ from sklearn.preprocessing import StandardScaler
 
 from functions.benchmark import benchmark
 from functions.dataset import Dataset
-from functions.eval_measures import ipw_weights, qini_coefficient
+from functions.eval_measures import aipw_pseudo_outcomes, dr_qini_coefficient, ipw_weights, qini_coefficient
+from functions.models import make_outcome_model
 from functions.targeting import retention_uplift
 
 
@@ -29,6 +30,18 @@ class PropensityModel:
 
     def predict(self, data):
         return np.clip(self.model.predict_proba(data.X)[:, 1], self.clip, 1 - self.clip)
+
+
+class OutcomeModels:
+    """P(retained | X) without and with the offer: one churn model per arm.
+    predict returns an (n, 2) array (mu0, mu1) for doubly-robust effect estimates."""
+
+    def fit(self, data):
+        self.models = [make_outcome_model().fit(data.X[data.t == arm], data.y[data.t == arm]) for arm in (0, 1)]
+        return self
+
+    def predict(self, data):
+        return np.column_stack([1 - m.predict_proba(data.X)[:, 1] for m in self.models])
 
 
 class UpliftLearner:
@@ -56,19 +69,24 @@ class UpliftLearner:
 
 
 def cross_validate_uplift(X, t, y, learners, k_folds=5, n_repeats=2, seed=0):
-    """Out-of-fold Qini on retention, unweighted and inverse-propensity weighted.
+    """Out-of-fold Qini on retention: unweighted, inverse-propensity weighted and
+    doubly robust.
 
-    Each split refits every learner, and a propensity model for the weights, on
-    the training folds only. Returns one row per (model, split).
+    Each split refits every learner, plus the propensity and outcome models used
+    for the weights and DR effects, on the training folds only. Returns one row
+    per (model, split).
     """
     data = Dataset(X=np.asarray(X), t=np.asarray(t), y=np.asarray(y))
-    models = {**learners, "_propensity": PropensityModel()}
+    models = {**learners, "_propensity": PropensityModel(), "_outcomes": OutcomeModels()}
     results = benchmark(data, models, k_folds=k_folds, n_repeats=n_repeats, seed=seed)
 
     rows = []
     for i, split in enumerate(results):
         test = data[split["test_indices"]]
-        weights = ipw_weights(test.t, split["results"]["_propensity"]["pred"])
+        propensity = split["results"]["_propensity"]["pred"]
+        weights = ipw_weights(test.t, propensity)
+        mu = split["results"]["_outcomes"]["pred"]
+        effects = aipw_pseudo_outcomes(1 - test.y, test.t, mu[:, 0], mu[:, 1], propensity)
         for name in learners:
             uplift = split["results"][name]["pred"]
             rows.append({
@@ -76,17 +94,19 @@ def cross_validate_uplift(X, t, y, learners, k_folds=5, n_repeats=2, seed=0):
                 "split": i,
                 "qini": qini_coefficient(1 - test.y, test.t, uplift),
                 "ipw_qini": qini_coefficient(1 - test.y, test.t, uplift, weights),
+                "dr_qini": dr_qini_coefficient(test.t, uplift, effects),
             })
     return pd.DataFrame(rows)
 
 
 def summarize_cv(cv):
-    """Per model: mean Qini, mean and spread of IPW Qini, and the share of splits
-    where IPW Qini beats random targeting. Best mean IPW Qini first."""
+    """Per model: mean Qini and IPW Qini, mean and spread of DR Qini, and the
+    share of splits where DR Qini beats random targeting. Best mean DR Qini first."""
     by_model = cv.groupby("model")
     return pd.DataFrame({
         "mean_qini": by_model["qini"].mean(),
         "mean_ipw_qini": by_model["ipw_qini"].mean(),
-        "std_ipw_qini": by_model["ipw_qini"].std(),
-        "share_ipw_qini_above_0": by_model["ipw_qini"].apply(lambda s: (s > 0).mean()),
-    }).sort_values("mean_ipw_qini", ascending=False)
+        "mean_dr_qini": by_model["dr_qini"].mean(),
+        "std_dr_qini": by_model["dr_qini"].std(),
+        "share_dr_qini_above_0": by_model["dr_qini"].apply(lambda s: (s > 0).mean()),
+    }).sort_values("mean_dr_qini", ascending=False)
