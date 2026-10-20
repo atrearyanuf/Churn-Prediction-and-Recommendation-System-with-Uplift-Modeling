@@ -226,7 +226,7 @@ From the repository root, after running the notebook:
 streamlit run streamlit_dashboard.py
 ```
 
-It shows the KPIs, the churn-probability distribution, the recommendation counts, the uplift model comparison and a filterable recommendation table. If the notebook outputs are missing, it says so instead of crashing.
+It shows the KPIs, the churn-probability distribution, the recommendation counts, the uplift model comparison, a filterable recommendation table and the latest drift report from `python -m churn_uplift monitor`. If the notebook outputs are missing, it says so instead of crashing.
 
 ### 3. Go chart server (optional)
 
@@ -236,7 +236,32 @@ go run .        # needs Go 1.23+; serves http://localhost:8081
 
 It shows a bar chart of the 20 customers with the highest retention uplift, read from `outputs/customer_recommendations.csv` on every request.
 
-### 4. Use the targeting functions directly
+### 4. Batch pipeline: train, score, monitor
+
+The `churn_uplift` package runs the notebook's modeling steps as a command-line pipeline. It builds every model from the same definitions (`functions/models.py`), so its models match the notebook's; CI checks this on every change. Settings (data, artifact paths, offer cost, customer value, cross-validation and drift threshold) are in `config.toml`.
+
+```bash
+python -m churn_uplift train                      # fit and save models to artifacts/ (about 1-2 minutes)
+python -m churn_uplift score customers.csv        # recommendations -> outputs/scored_customers.csv
+python -m churn_uplift monitor customers.csv      # drift report -> outputs/drift_report.csv
+```
+
+- **train** chooses the churn model by validation AUC, calibrates it, chooses the uplift model by cross-validated DR Qini, applies the safety gate, and saves `artifacts/model.joblib` plus `artifacts/metrics.json`.
+- **score** reads a CSV or parquet file with the training feature columns (an optional `customer_id` column is carried through). Missing columns are rejected with a clear error, and categories not seen in training are scored as unknown.
+- **monitor** compares a new batch with the training data using the population stability index (PSI) for every feature and for the predicted churn probability and retention uplift. It exits with code 1 if any PSI reaches the threshold (0.2), so a scheduler or CI job can alert on it.
+
+### 5. Docker
+
+```bash
+docker build -t churn-uplift .
+docker run --rm -v "$PWD/data:/app/data" -v "$PWD/artifacts:/app/artifacts" churn-uplift train
+docker run --rm -v "$PWD/artifacts:/app/artifacts" -v "$PWD/outputs:/app/outputs" -v "$PWD/batch:/app/batch" \
+  churn-uplift score batch/customers.csv
+```
+
+The image runs the pipeline as a non-root user. CI builds it and runs train, score and monitor inside it on every pipeline change.
+
+### 6. Use the targeting functions directly
 
 ```python
 from functions.eval_measures import bootstrap_qini, ipw_weights
@@ -261,6 +286,8 @@ Both run on every push via GitHub Actions (`.github/workflows/tests.yml`).
 
 A second workflow (`.github/workflows/notebook.yml`) re-runs the whole notebook from scratch, including the dataset download. It runs every Monday and whenever the notebook, `functions/` or `requirements.txt` change. `tools/compare_notebook_outputs.py` then fails the run if any printed result differs from the committed notebook, which catches code changes committed without re-running the notebook, and data sources that disappear or change.
 
+A third workflow (`.github/workflows/pipeline.yml`) trains the batch pipeline and fails unless `tools/check_pipeline_matches_notebook.py` finds the same churn model and validation AUC, the same uplift model and the same validation DR Qini interval as the committed notebook. It also builds the Docker image and runs the pipeline inside it.
+
 The Python suite (`tests/`) checks:
 
 - **Qini implementation:** it matches `causalml.metrics.get_qini` and `qini_score(normalize=False)`, ignores row order for tied scores, gives exactly 0 for a constant score and rejects invalid input.
@@ -276,6 +303,9 @@ The Python suite (`tests/`) checks:
 - **Dataset loading:** sources are tried in order, a source with different content is skipped, a modified cache is rejected, and the cache keeps floats exact.
 - **Dataset-paper helpers:** cross-validation splits cover every customer, EasyEnsemble folds are balanced and independent (including in parallel), and the wrappers handle 0/1 treatment flags.
 - **Dashboard:** it renders from notebook outputs and explains missing files.
+- **Batch pipeline:** training saves the model and metrics; scoring ranks customers, keeps their IDs, respects the safety gate, rejects missing columns and handles unseen categories; the CLI returns exit code 1 on drift and 2 on bad input without a traceback.
+- **Drift monitoring:** PSI matches the textbook formula and survives empty bins; a similar batch shows no drift; a shifted feature or an unseen category is flagged.
+- **Pipeline check:** a different model choice or validation number is reported.
 - **Notebook comparison tool:** it ignores timings, stderr, widgets and last-digit float noise (relative 1e-6), and reports changed results by cell.
 - **README:** every number above matches the notebook output, and every file path it mentions exists.
 
@@ -299,7 +329,15 @@ The Go tests check the CSV parsing (columns found by name, bad input rejected) a
 │   └── benchmark.py, dataset.py, easy_ensemble.py, wrappers.py
 │                                 # Benchmark helpers from the dataset paper's code (bugs fixed); used by uplift_cv.py
 ├── tests/                        # pytest suite
-├── tools/compare_notebook_outputs.py  # CI check: fresh notebook run prints the committed results
+├── churn_uplift/                 # Batch pipeline: python -m churn_uplift {train,score,monitor}
+│   ├── __main__.py               # Command line
+│   ├── pipeline.py               # Train, save, score
+│   └── drift.py                  # Population stability index (PSI) drift report
+├── config.toml                   # Pipeline settings
+├── Dockerfile                    # Pipeline image (non-root)
+├── tools/
+│   ├── compare_notebook_outputs.py        # CI: a fresh notebook run prints the committed results
+│   └── check_pipeline_matches_notebook.py # CI: the pipeline reproduces the notebook's models
 ├── outputs/                      # Plots (tracked) and CSVs (generated, git-ignored)
 ├── end_user.go, go.mod, go.sum   # Go chart server: top customers by retention uplift
 ├── end_user_test.go              # Go tests
@@ -333,6 +371,7 @@ The Go tests check the CSV parsing (columns found by name, bad input rejected) a
 - [x] Probability calibration and PR-AUC for the churn model
 - [x] Doubly-robust Qini and DR-Learner
 - [x] Power analysis and policy evaluation
+- [x] Batch pipeline (train, score, monitor) with config, saved models, drift monitoring and Docker
 - [x] Continuous integration (GitHub Actions: pytest and go test on every push)
 - [x] Repaired the dataset-paper helpers and the Go chart server
 
