@@ -20,14 +20,14 @@ total = len(raw)
 churn_rate = raw["y"].mean() * 100
 treated = raw["t"].mean() * 100
 avg_churn_prob = recs["churn_probability"].mean() * 100
-avg_uplift = recs["uplift_score"].mean()
+avg_uplift = recs["retention_uplift"].mean()
 
 c1, c2, c3, c4, c5 = st.columns(5)
 c1.metric("Total Customers", f"{total:,}")
 c2.metric("Churn Rate", f"{churn_rate:.1f}%")
 c3.metric("Treatment Rate", f"{treated:.1f}%")
 c4.metric("Avg Churn Probability", f"{avg_churn_prob:.1f}%")
-c5.metric("Avg Uplift Score", f"{avg_uplift:.3f}")
+c5.metric("Avg Retention Uplift", f"{avg_uplift:+.3f}")
 
 st.divider()
 
@@ -63,7 +63,7 @@ selected = col_b.multiselect("Intervention Type", interventions, default=interve
 filtered = recs[
     (recs["churn_probability"] >= threshold) &
     (recs["recommended_intervention"].isin(selected))
-].sort_values("priority_score", ascending=False)
+].sort_values("expected_profit", ascending=False)
 
 st.dataframe(filtered.reset_index(drop=True), use_container_width=True)
 st.caption(f"Showing {len(filtered):,} of {len(recs):,} customers")
