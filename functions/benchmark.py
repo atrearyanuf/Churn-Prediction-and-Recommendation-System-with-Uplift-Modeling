@@ -33,7 +33,7 @@ def benchmark(dataset, models, k_folds=5, n_repeats=4, seed=None, verbose=False,
             print("Split {}/{}".format(i, n_splits))
                   
         data_test = dataset[split]
-        # Shuffle also the train indices just to be sure
+        # -> Shuffle also the train indices just to be sure
         train_indices = rng.permutation(np.setdiff1d(all_indices, split))
         data_train = dataset[train_indices]
         
@@ -53,3 +53,38 @@ def benchmark(dataset, models, k_folds=5, n_repeats=4, seed=None, verbose=False,
             res_split["results"][model_name]["model"] = model
         res.append(res_split)
     return res
+
+
+
+
+# import torch
+
+# def awq_quantize(W, activations, bits=4, group_size=128, dtype=torch.float16):
+#     W = W.to(dtype)
+#     activations = activations.to(dtype)
+
+#     # calibration math in fp32 for stability, even if weights are fp16
+#     scale = activations.float().abs().mean(dim=0).clamp(min=1e-5)
+#     W_scaled = (W.float() * scale)
+
+#     qmax = 2 ** (bits - 1) - 1
+#     out = torch.empty_like(W, dtype=torch.float32)
+
+#     for i in range(0, W.shape[1], group_size):
+#         w_group = W_scaled[:, i:i+group_size]
+#         s = w_group.abs().max() / qmax
+#         q = torch.clamp((w_group / s).round(), -qmax, qmax)
+#         out[:, i:i+group_size] = (q * s) / scale[i:i+group_size]
+
+#     return out.to(dtype)  # cast back to fp16 (or fp32) at the end
+
+# # fp16 example
+# W16 = torch.randn(512, 512, dtype=torch.float16)
+# acts16 = torch.randn(64, 512, dtype=torch.float16)
+# W_q16 = awq_quantize(W16, acts16, dtype=torch.float16)
+
+# # fp32 example
+# W32 = torch.randn(512, 512, dtype=torch.float32)
+# acts32 = torch.randn(64, 512, dtype=torch.float32)
+# W_q32 = awq_quantize(W32, acts32, dtype=torch.float32)
+

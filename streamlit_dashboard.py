@@ -16,7 +16,7 @@ DRIFT_REPORT = "outputs/drift_report.csv"
 st.set_page_config(page_title="Churn Dashboard", layout="wide")
 st.title("Churn Prediction & Uplift Modeling")
 
-# ── Load data ──────────────────────────────────────────────────────────────────
+# ── Load data ──
 @st.cache_data
 def load_data():
     raw = pd.read_parquet(DATA_FILES["raw"])
@@ -32,7 +32,7 @@ if missing:
 
 raw, recs, models = load_data()
 
-# ── KPI metrics ────────────────────────────────────────────────────────────────
+# ── KPI metrics 
 total = len(raw)
 churn_rate = raw["y"].mean() * 100
 treated = raw["t"].mean() * 100
@@ -48,7 +48,7 @@ c5.metric("Avg Retention Uplift", f"{avg_uplift:+.3f}")
 
 st.divider()
 
-# ── Charts ─────────────────────────────────────────────────────────────────────
+# ── Charts 
 col1, col2 = st.columns(2)
 
 with col1:
@@ -65,11 +65,11 @@ with col2:
     fig2.update_layout(margin=dict(t=10, b=10), height=300)
     st.plotly_chart(fig2, width="stretch")
 
-# ── Model comparison ───────────────────────────────────────────────────────────
+# ── Model comparison 
 st.subheader("Uplift Model Comparison")
 st.dataframe(models, width="stretch")
 
-# ── Customer recommendations table ─────────────────────────────────────────────
+# ── Customer recommendations table 
 st.subheader("Customer Recommendations")
 
 col_a, col_b = st.columns(2)
@@ -85,7 +85,7 @@ filtered = recs[
 st.dataframe(filtered.reset_index(drop=True), width="stretch")
 st.caption(f"Showing {len(filtered):,} of {len(recs):,} customers")
 
-# ── Data drift ─────────────────────────────────────────────────────────────────
+# ── Data drift 
 st.subheader("Data Drift")
 if Path(DRIFT_REPORT).exists():
     drift = pd.read_csv(DRIFT_REPORT)
