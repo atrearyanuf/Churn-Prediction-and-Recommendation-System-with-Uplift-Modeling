@@ -36,3 +36,36 @@ def test_dashboard_explains_missing_notebook_outputs(tmp_path, monkeypatch):
 
     assert not app.exception
     assert "Run Churn_Uplift_COMPLETE.ipynb first" in app.error[0].value
+
+
+def write_outputs(root):
+    (root / "data").mkdir()
+    (root / "outputs").mkdir()
+    pd.DataFrame({"y": [0, 1], "t": [1, 0]}).to_parquet(root / "data" / "churn_uplift_anonymized.parquet", index=False)
+    recommend([0.2, 0.8], [0.1, -0.05], customer_value=1600, offer_cost=40, validated=True).to_csv(
+        root / "outputs" / "customer_recommendations.csv", index=False)
+    pd.DataFrame({"Model": ["T-Learner"], "Qini": [1.0]}).to_csv(
+        root / "outputs" / "uplift_comparison_results.csv", index=False)
+
+
+def test_dashboard_shows_the_latest_drift_report(tmp_path, monkeypatch):
+    write_outputs(tmp_path)
+    pd.DataFrame({"column": ["PC1", "PC2"], "kind": ["feature", "feature"], "psi": [0.35, 0.01],
+                  "status": ["drift", "ok"]}).to_csv(tmp_path / "outputs" / "drift_report.csv", index=False)
+    monkeypatch.chdir(tmp_path)
+
+    app = AppTest.from_file(DASHBOARD).run()
+
+    assert not app.exception
+    assert app.dataframe[2].value["column"].tolist() == ["PC1", "PC2"]
+    assert any("1 of 2 columns drifted" in c.value for c in app.caption)
+
+
+def test_dashboard_explains_how_to_get_a_drift_report(tmp_path, monkeypatch):
+    write_outputs(tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    app = AppTest.from_file(DASHBOARD).run()
+
+    assert not app.exception
+    assert "python -m churn_uplift monitor" in app.info[0].value

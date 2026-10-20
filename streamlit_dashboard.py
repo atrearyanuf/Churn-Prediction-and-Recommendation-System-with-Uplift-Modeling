@@ -10,6 +10,8 @@ DATA_FILES = {
     "recs": "outputs/customer_recommendations.csv",
     "models": "outputs/uplift_comparison_results.csv",
 }
+# Written by `python -m churn_uplift monitor` (drift.report in config.toml)
+DRIFT_REPORT = "outputs/drift_report.csv"
 
 st.set_page_config(page_title="Churn Dashboard", layout="wide")
 st.title("Churn Prediction & Uplift Modeling")
@@ -82,3 +84,15 @@ filtered = recs[
 
 st.dataframe(filtered.reset_index(drop=True), width="stretch")
 st.caption(f"Showing {len(filtered):,} of {len(recs):,} customers")
+
+# ── Data drift ─────────────────────────────────────────────────────────────────
+st.subheader("Data Drift")
+if Path(DRIFT_REPORT).exists():
+    drift = pd.read_csv(DRIFT_REPORT)
+    flagged = (drift["status"] == "drift").sum()
+    st.caption(f"{flagged} of {len(drift)} columns drifted in the last monitored batch "
+               "(PSI: below 0.1 stable, 0.1-0.2 watch, above 0.2 drift)")
+    st.dataframe(drift, width="stretch")
+else:
+    st.info("No drift report yet. Run `python -m churn_uplift monitor <customers.csv>` to compare a new "
+            "batch of customers with the training data.")
