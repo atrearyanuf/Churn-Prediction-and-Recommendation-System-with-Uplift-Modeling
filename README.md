@@ -2,46 +2,27 @@
 
 <div align="center">
 
-![Python Version](https://img.shields.io/badge/python-3.12+-blue.svg)
+![Python Version](https://img.shields.io/badge/python-3.12-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
-![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-pytest-brightgreen.svg)
 
-**A production-ready causal inference system that shifts customer retention from "who will churn?" to "who will respond?"**
+**A causal-inference pipeline that moves customer retention from "who will churn?" to "who will respond to an offer?", and says plainly when the data cannot answer the second question.**
 
-[Features](#-features) • [Demo](#-demo) • [Installation](#-installation) • [Quick Start](#-quick-start) • [Documentation](#-documentation) • [Contributing](#-contributing)
+[Overview](#overview) • [Results](#results) • [Installation](#installation) • [Usage](#usage) • [Testing](#testing) • [Limitations](#limitations)
 
 </div>
 
 ---
 
-## Table of Contents
-
-- [Overview](#-overview)
-- [Key Features](#-features)
-- [Demo](#-demo)
-- [Architecture](#-architecture)
-- [Installation](#-installation)
-- [Quick Start](#-quick-start)
-- [Project Structure](#-project-structure)
-- [Configuration](#%EF%B8%8F-configuration)
-- [Usage](#-usage)
-- [API Reference](#-api-reference)
-- [Model Performance](#-model-performance)
-- [Testing](#-testing)
-- [Deployment](#-deployment)
-- [Contributing](#-contributing)
-- [Citation](#-citation)
-- [License](#-license)
-- [Acknowledgments](#-acknowledgments)
-- [Contact](#-contact)
-
----
-
 ## Overview
 
-Traditional churn prediction models identify **who will churn** but fail to answer the critical question: **who will respond to retention interventions?** This leads to 30-40% of retention budgets being wasted on customers who won't respond.
+Churn models rank customers by **who will churn**. A retention budget needs to know **who will stay because of the offer**. Contacting a customer who would have stayed anyway wastes the offer, and some customers are pushed to leave by being contacted ("sleeping dogs").
 
-This project implements a **production-ready uplift modeling system** that uses causal inference to identify "Persuadables" — customers who will stay if targeted, but churn otherwise. By integrating gradient boosting for churn prediction with meta-learner approaches for treatment effect estimation, the system delivers actionable, personalized recommendations that maximize retention ROI.
+This project builds both stages on a real retention campaign:
+
+1. **Churn prediction**: Random Forest, XGBoost and LightGBM estimate P(churn).
+2. **Uplift modeling**: T-, S- and X-Learners (CausalML, XGBoost base learners) and an Uplift Random Forest estimate how much the offer changes each customer's churn probability.
+3. **Recommendation**: an offer is recommended only when its expected value exceeds its cost.
 
 ### Academic Context
 
@@ -52,182 +33,95 @@ This project implements a **production-ready uplift modeling system** that uses 
 
 ### Key Results
 
-- **Churn Prediction:** XGBoost AUC **0.839**, F1 **0.231** (28:1 class imbalance)
-- **Uplift Modeling:** S-Learner Qini **0.33** (33% better than random targeting)
-- Uplift Eval: T-Learner (Qini -1.25) and S-Learner (Qini 0.17) both failed to beat random targeting — likely a data/signal issue (sample size, weak effect, or assignment quality), not model choice. Want to dig into the data before iterating further.
-- **Business Impact:** **58 customers** targeted, **$27,948** net benefit, **1,204% ROI**
-- **Deployment:** Streamlit dashboard with SHAP explainability
+All numbers below are printed by `Churn_Uplift_COMPLETE.ipynb`; `tests/test_readme.py` fails if they drift apart.
+
+- **Churn prediction:** XGBoost reaches test AUC 0.814 and F1 0.250 on a 28:1 class imbalance.
+- **Uplift modeling:** no model beats random targeting on the validation set; every 95% confidence interval contains 0. The S-Learner, selected on validation, scores test Qini +12.10 (95% CI +1.28 to +23.90). That is weak evidence, and its estimated effects (at most 0.017) are below the 0.025 break-even uplift.
+- **Recommendation:** with an assumed $1,600 customer value and $40 offer cost, the pipeline recommends **no offers**. That is the correct decision when the measured effect is this small.
+- **Why:** the offer lowers churn by only 0.25 percentage points on average (3.64% control vs 3.39% treated in validation), the training set has 244 churners (63 in the control arm), and treatment probability depends on customer features (propensity AUC 0.631).
 
 ---
 
-## Features
+## How It Works
 
-### Machine Learning
+```
+ Dataset (Orange Belgium, 11,896 customers, 178 anonymised features)
+    │  label-encode categoricals, 60/20/20 split stratified on (churn × treatment)
+    ▼
+ ┌──────────────────────────┐        ┌──────────────────────────────────┐
+ │ Stage 1: churn models    │        │ Stage 2: uplift models           │
+ │  Random Forest, XGBoost, │        │  T / S / X-Learner (XGBoost),    │
+ │  LightGBM → P(churn)     │        │  Uplift Random Forest            │
+ │  threshold tuned for F1  │        │  → churn effect τ(x)             │
+ └────────────┬─────────────┘        └────────────────┬─────────────────┘
+              │                                       │ retention uplift = −τ(x)
+              ▼                                       ▼
+ ┌────────────────────────────────────────────────────────────────────────┐
+ │ Evaluation: tie-aware Qini on retention, 95% bootstrap CI              │
+ │ Targeting: expected profit = value × retention uplift − offer cost     │
+ │            offer only if expected profit > 0                           │
+ └────────────┬───────────────────────────────────────────────────────────┘
+              ▼
+   outputs/ (CSV + plots)  →  Streamlit dashboard,  SHAP explanations
+```
 
-- **Two-Stage Pipeline**
-  - Stage 1: Churn prediction (Random Forest, LightGBM, XGBoost)
-  - Stage 2: Uplift modeling (T-Learner, S-Learner, X-Learner, UpliftRandomForest)
-- **Advanced Data Preprocessing**
-  - 4-group stratified splitting for causal signal preservation
-  - Propensity score weighting (IPW) for treatment imbalance correction
-  - Within-arm SMOTE oversampling (3.4% → 15% positive rate)
-- **Comprehensive Evaluation**
-  - Qini curves and coefficients
-  - AUUC (Area Under Uplift Curve)
-  - Stratified cross-validation
-  - Bootstrap confidence intervals
+### Sign convention
 
-### Model Interpretability
+The outcome is churn (`y = 1` is bad). CausalML learners return the **churn effect** τ(x) = P(churn | offer) − P(churn | no offer), so a customer the offer keeps has τ(x) < 0. The pipeline converts this once, right at the model output, to **retention uplift** = −τ(x), where higher is better:
 
-- **SHAP Integration**
-  - Global feature importance
-  - Individual prediction explanations
-  - Waterfall plots for customer-level insights
-- **Business-Friendly Visualizations**
-  - ROI waterfall charts
-  - Uplift distribution plots
-  - Customer segment analysis
+| Retention uplift | Segment | Meaning |
+|------------------|---------|---------|
+| > +0.02 | Persuadable | Offer lowers their churn |
+| < −0.02 | Sleeping_Dog | Offer raises their churn: never target |
+| otherwise | Unaffected | Offer makes little difference |
 
-### Production Features
+### Evaluation choices
 
-- **Modular Architecture**
-  - Independent, testable components
-  - Clean separation of concerns
-  - Easy to extend and maintain
-- **Data Pipeline**
-  - Schema validation
-  - Data quality checks
-  - Feature engineering automation
-- **Monitoring & Logging**
-  - Model performance tracking
-  - Drift detection capabilities
-  - Comprehensive logging
-
-### Interactive Dashboard
-
-- **Streamlit UI**
-  - Real-time customer recommendations
-  - Interactive SHAP explanations
-  - ROI visualization
-  - CSV export functionality
-  - Filtering by uplift threshold
+- **Qini is unnormalised.** It is measured in extra customers retained compared with random targeting, averaged over all targeting depths. CausalML's default normalisation divides by the total gain. That gain is close to 0 here, which inflated earlier scores to values like −1.90.
+- **Ties are handled.** Customers with equal scores form one block, so a constant score gives exactly 0, independent of row order.
+- **Confidence intervals** come from 1,000 bootstrap resamples within each arm. An interval containing 0 means "not distinguishable from random targeting".
+- **No oversampling for uplift models.** Oversampling each arm to 15% churners inflates churn odds by a different factor per arm, which biases the estimated effect.
 
 ---
 
-## Demo
+## Results
 
-### Dashboard Screenshot
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Churn Uplift Recommendation System                         │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  📊 Business Impact                                          │
-│  ┌──────────────┬──────────────┬──────────────┐            │
-│  │ Customers    │ Net Benefit  │ ROI          │            │
-│  │ Targeted: 58 │ $27,948      │ 1,204%       │            │
-│  └──────────────┴──────────────┴──────────────┘            │
-│                                                              │
-│  🎯 Top Recommendations                                      │
-│  ┌────┬──────────┬──────────┬──────────┬────────────┐      │
-│  │ ID │ Uplift   │ Churn %  │ Value    │ Action     │      │
-│  ├────┼──────────┼──────────┼──────────┼────────────┤      │
-│  │142 │ 0.089    │ 78%      │ $1,600   │ Discount   │      │
-│  │ 89 │ 0.082    │ 81%      │ $1,450   │ Loyalty    │      │
-│  └────┴──────────┴──────────┴──────────┴────────────┘      │
-│                                                              │
-│  📈 SHAP Explanation (Customer 142)                          │
-│  PC_23: +0.034 ████████                                     │
-│  PC_7:  -0.021 █████                                        │
-│  PC_41: +0.018 ███                                          │
-└─────────────────────────────────────────────────────────────┘
-```
+### Churn prediction
 
-### Command Line Interface
-```bash
-# Train models
-python src/train.py --config configs/default.yaml
+The decision threshold is chosen for F1 on the validation set.
 
-# Generate recommendations
-python src/predict.py --input data/customers.csv --output results/
+| Model | Split | AUC | F1 | Precision | Recall |
+|-------|-------|-----|----|-----------|--------|
+| Random Forest | validation | 0.822 | 0.250 | 0.197 | 0.341 |
+| LightGBM | validation | 0.825 | 0.294 | 0.344 | 0.256 |
+| **XGBoost** (selected by AUC) | validation | 0.828 | 0.276 | 0.222 | 0.366 |
+| **XGBoost** | **test** | **0.814** | **0.250** | **0.190** | **0.366** |
 
-# Launch dashboard
-streamlit run src/dashboard.py
-```
+### Uplift modeling
 
----
+Qini is reported on retention, in extra customers retained compared with random targeting, with a 95% bootstrap CI.
 
-## Architecture
+| Model | Split | Qini | 95% CI |
+|-------|-------|------|--------|
+| T-Learner | validation | -6.97 | -18.94 to +5.99 |
+| S-Learner | validation | +5.87 | -3.30 to +16.16 |
+| X-Learner | validation | -4.60 | -15.93 to +6.82 |
+| UpliftRandomForest | validation | -4.10 | -14.30 to +6.74 |
+| **S-Learner** (selected on validation) | **test** | **+12.10** | **+1.28 to +23.90** |
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Data Pipeline                            │
-│  Download → Validate → 4-Group Stratify → Propensity → SMOTE   │
-└────────────────────────┬────────────────────────────────────────┘
-                         │
-         ┌───────────────┴───────────────┐
-         │                               │
-         ▼                               ▼
-┌────────────────────┐         ┌────────────────────┐
-│  Stage 1: Churn    │         │  Stage 2: Uplift   │
-│  ├─ Random Forest  │         │  ├─ T-Learner      │
-│  ├─ LightGBM       │         │  ├─ S-Learner ✓    │
-│  └─ XGBoost ✓      │         │  ├─ X-Learner      │
-│                    │         │  └─ UpliftRF       │
-│  Output: P(Churn)  │         │  Output: τ(x)      │
-└─────────┬──────────┘         └──────────┬─────────┘
-          │                               │
-          └───────────────┬───────────────┘
-                          │
-                          ▼
-                ┌──────────────────────┐
-                │  Recommendation      │
-                │  Priority = 0.6×P +  │
-                │             0.4×τ    │
-                └──────────┬───────────┘
-                           │
-          ┌────────────────┼────────────────┐
-          │                │                │
-          ▼                ▼                ▼
-    ┌──────────┐    ┌──────────┐    ┌──────────┐
-    │Streamlit │    │   SHAP   │    │   ROI    │
-    │Dashboard │    │Explainer │    │ Analysis │
-    └──────────┘    └──────────┘    └──────────┘
-```
+The S-Learner's effects are tiny (std 0.001): its single model barely uses the treatment column. The X-Learner labels 37.8% of customers persuadable, but its Qini is negative, so those labels are not reliable.
 
-### System Modules
+### Business decision
 
-1. **Data Pipeline** (`src/data/`)
-   - Ingestion, validation, preprocessing
-   - 4-group stratified splitting
-   - Propensity score calculation
-   - Within-arm SMOTE oversampling
+| Assumption | Value |
+|------------|-------|
+| Offer cost | $40 per contacted customer |
+| Value of a retained customer | $1,600 |
+| Break-even retention uplift | 0.025 |
 
-2. **Churn Prediction** (`src/models/churn/`)
-   - Random Forest baseline
-   - LightGBM with class balancing
-   - XGBoost with scale_pos_weight
+On the 2,379 validation customers, the largest estimated retention uplift is 0.017, so expected profit is negative for everyone and the recommendation is **No_Action** for all of them. These dollar values are planning assumptions, not data from the campaign. Change `OFFER_COST` and `CUSTOMER_VALUE` in section 8 of the notebook to use your own.
 
-3. **Uplift Modeling** (`src/models/uplift/`)
-   - T-Learner (two-model approach)
-   - S-Learner (single-model approach)
-   - X-Learner (propensity-weighted)
-   - UpliftRandomForest
-
-4. **Recommendation Engine** (`src/recommender/`)
-   - Customer prioritization
-   - Intervention mapping
-   - SHAP-based explanations
-
-5. **Dashboard** (`src/dashboard/`)
-   - Streamlit web application
-   - Interactive visualizations
-   - CSV export
-
-6. **Utilities** (`src/utils/`)
-   - Logging configuration
-   - Metrics calculation
-   - Visualization helpers
+> An earlier version of this README reported a Qini of 0.33, 58 targeted customers and a 1,204% ROI. Those figures came from a normalised Qini, a targeting rule with the effect sign inverted, and oversampled training data. They are superseded by the results above.
 
 ---
 
@@ -235,716 +129,145 @@ streamlit run src/dashboard.py
 
 ### Prerequisites
 
-- Python 3.12 or higher
-- pip (Python package manager) / Conda env package manager 
-- virtualenv/CondaEnv (recommended)
-- 16GB RAM (for full dataset processing)
+- Python 3.12
 
-### Step 1: Clone Repository
+### Steps
 
 ```bash
-git clone https://github.com/yourusername/churn-uplift-modeling.git
-cd churn-uplift-modeling
+git clone https://github.com/atrearyanuf/Churn-Prediction-and-Recommendation-System-with-Uplift-Modeling.git
+cd Churn-Prediction-and-Recommendation-System-with-Uplift-Modeling
+
+# venv (or: conda create -n churn-uplift python=3.12 && conda activate churn-uplift)
+python3.12 -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+
+pip install -r requirements-dev.txt   # runtime dependencies + pytest
 ```
 
-### Step 2: Create Virtual Environment
+`requirements.txt` pins the exact versions the results were produced with. A fresh environment built from it reproduces the notebook output.
+
+---
+
+## Usage
+
+### 1. Run the pipeline notebook
 
 ```bash
-# Using venv
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# OR using conda
-conda create -n churn-uplift python=3.12
-conda activate churn-uplift
+jupyter notebook Churn_Uplift_COMPLETE.ipynb
+# or, headless:
+jupyter nbconvert --to notebook --execute --inplace Churn_Uplift_COMPLETE.ipynb
 ```
 
-### Step 3: Install Dependencies
+The first cell downloads the dataset to `data/churn_uplift_anonymized.csv`. The full run takes under a minute on a laptop. It writes:
+
+- `outputs/customer_recommendations.csv`: one row per validation customer with churn probability, retention uplift, expected profit, segment and recommendation
+- `outputs/uplift_comparison_results.csv`: Qini with confidence interval for each uplift model
+- plots in `outputs/` (ROC, confusion matrix, Qini curves, model comparison, SHAP)
+
+### 2. Launch the dashboard
+
+From the repository root, after running the notebook:
 
 ```bash
-# Install core dependencies
-pip install -r requirements.txt
-
-# Install development dependencies (optional)
-pip install -r requirements-dev.txt
+streamlit run streamlit_dashboard.py
 ```
 
-### Step 4: Download Dataset
+It shows the KPIs, the churn-probability distribution, the recommendation counts, the uplift model comparison and a filterable recommendation table. If the notebook outputs are missing, it says so instead of crashing.
 
-```bash
-# Option 1: Download Orange Belgium dataset manually
-# Place in data/raw/orange_belgium.csv
+### 3. Use the targeting functions directly
 
-# Option 2: Use data download script
-python scripts/download_data.py
-```
+```python
+from functions.eval_measures import bootstrap_qini
+from functions.targeting import recommend, retention_uplift
 
-### Step 5: Verify Installation
-
-```bash
-python -c "import xgboost, causalml, shap; print('Installation successful!')"
+uplift = retention_uplift(learner.predict(X))           # CausalML churn effect -> retention uplift
+qini, low, high = bootstrap_qini(1 - y, t, uplift)       # evaluate on retention (1 - churn)
+recs = recommend(churn_probability, uplift, customer_value=1600, offer_cost=40)
 ```
 
 ---
 
-## Quick Start to the capstone project
-
-### Option 1: End-to-End Pipeline
+## Testing
 
 ```bash
-# Run complete pipeline (preprocessing → training → evaluation)
-python run_pipeline.py --config configs/default.yaml
+pytest
 ```
 
-### Option 2: Step-by-Step
+The suite (`tests/`) checks:
 
-```bash
-# Step 1: Preprocess data
-python src/data/preprocess.py \
-    --input data/raw/orange_belgium.csv \
-    --output data/processed/
-
-# Step 2: Train churn models
-python src/models/churn/train_churn.py \
-    --data data/processed/train.csv \
-    --output models/churn/
-
-# Step 3: Train uplift models
-python src/models/uplift/train_uplift.py \
-    --data data/processed/train.csv \
-    --output models/uplift/
-
-# Step 4: Generate recommendations
-python src/recommender/recommend.py \
-    --churn-model models/churn/xgboost.pkl \
-    --uplift-model models/uplift/s_learner.pkl \
-    --data data/processed/test.csv \
-    --output results/recommendations.csv
-
-# Step 5: Launch dashboard
-streamlit run src/dashboard/app.py
-```
-
-### Option 3: Jupyter Notebook
-
-```bash
-jupyter notebook notebooks/01_complete_pipeline.ipynb
-```
+- **Qini implementation:** it matches `causalml.metrics.get_qini` and `qini_score(normalize=False)`, ignores row order for tied scores, gives exactly 0 for a constant score and rejects invalid input.
+- **Bootstrap intervals:** they are reproducible, contain 0 for a useless model and exclude 0 for a real signal.
+- **Targeting:** the retention sign convention holds, offers go out only when profitable, and sleeping dogs are never targeted, even at high churn risk.
+- **End to end:** on a synthetic campaign with a known effect, a T-Learner trained without oversampling targets true persuadables more than 90% of the time.
+- **Dashboard:** it renders from notebook outputs and explains missing files.
+- **README:** every number above matches the notebook output, and every file path it mentions exists.
 
 ---
 
 ## Project Structure
 
 ```
-churn-uplift-modeling/
-│
-├── README.md                   # This file
-├── requirements.txt            # Python dependencies
-├── requirements-dev.txt        # Development dependencies
-├── setup.py                    # Package installation
-├── .gitignore                  # Git ignore rules
-├── LICENSE                     # MIT License
-│
-├── configs/                    # Configuration files
-│   ├── default.yaml            # Default hyperparameters
-│   ├── production.yaml         # Production settings
-│   └── experiment.yaml         # Experimental configs
-│
-├── data/                       # Data directory (gitignored)
-│   ├── raw/                    # Original datasets
-│   ├── processed/              # Preprocessed data
-│   └── external/               # External data sources
-│
-├── models/                     # Trained models (gitignored)
-│   ├── churn/                  # Churn prediction models
-│   └── uplift/                 # Uplift modeling models
-│
-├── notebooks/                  # Jupyter notebooks
-│   ├── 01_complete_pipeline.ipynb
-│   ├── 02_eda.ipynb
-│   ├── 03_model_comparison.ipynb
-│   ├── 04_uplift_analysis.ipynb
-│   └── 05_shap_explainability.ipynb
-│
-├── src/                        # Source code
-│   ├── __init__.py
-│   │
-│   ├── data/                   # Data processing
-│   │   ├── __init__.py
-│   │   ├── loader.py           # Data loading
-│   │   ├── preprocessor.py     # Preprocessing pipeline
-│   │   ├── stratify.py         # 4-group stratification
-│   │   ├── propensity.py       # Propensity score calculation
-│   │   └── smote.py            # Within-arm SMOTE
-│   │
-│   ├── models/                 # Model implementations
-│   │   ├── __init__.py
-│   │   ├── churn/              # Churn prediction
-│   │   │   ├── random_forest.py
-│   │   │   ├── lightgbm_model.py
-│   │   │   └── xgboost_model.py
-│   │   └── uplift/             # Uplift modeling
-│   │       ├── t_learner.py
-│   │       ├── s_learner.py
-│   │       ├── x_learner.py
-│   │       └── uplift_rf.py
-│   │
-│   ├── evaluation/             # Evaluation metrics
-│   │   ├── __init__.py
-│   │   ├── churn_metrics.py    # AUC, F1, Precision, Recall
-│   │   ├── uplift_metrics.py   # Qini, AUUC
-│   │   └── business_metrics.py # ROI, Net Benefit
-│   │
-│   ├── explainability/         # Model interpretability
-│   │   ├── __init__.py
-│   │   ├── shap_explainer.py   # SHAP integration
-│   │   └── feature_importance.py
-│   │
-│   ├── recommender/            # Recommendation engine
-│   │   ├── __init__.py
-│   │   ├── engine.py           # Core recommendation logic
-│   │   └── interventions.py    # Intervention mapping
-│   │
-│   ├── dashboard/              # Streamlit dashboard
-│   │   ├── __init__.py
-│   │   ├── app.py              # Main dashboard
-│   │   ├── components.py       # UI components
-│   │   └── visualizations.py   # Plotting functions
-│   │
-│   └── utils/                  # Utility functions
-│       ├── __init__.py
-│       ├── config.py           # Configuration loader
-│       ├── logger.py           # Logging setup
-│       └── helpers.py          # Helper functions
-│
-├── tests/                      # Unit tests
-│   ├── __init__.py
-│   ├── test_data.py
-│   ├── test_models.py
-│   ├── test_evaluation.py
-│   └── test_recommender.py
-│
-├── scripts/                    # Utility scripts
-│   ├── download_data.py        # Dataset download
-│   ├── train_all_models.py     # Batch training
-│   └── generate_report.py      # Results reporting
-│
-├── results/                    # Experiment results (gitignored)
-│   ├── figures/                # Plots and visualizations
-│   ├── metrics/                # Performance metrics
-│   └── recommendations/        # Generated recommendations
-│
-├── docs/                       # Documentation
-│   ├── architecture.md         # System architecture
-│   ├── api.md                  # API reference
-│   ├── deployment.md           # Deployment guide
-│   └── troubleshooting.md      # Common issues
-│
-└── docker/                     # Docker configuration
-    ├── Dockerfile              # Production image
-    ├── docker-compose.yml      # Multi-container setup
-    └── .dockerignore           # Docker ignore rules
+├── Churn_Uplift_COMPLETE.ipynb   # End-to-end pipeline (data → models → evaluation → recommendations → SHAP)
+├── streamlit_dashboard.py        # Dashboard over the notebook's outputs
+├── functions/
+│   ├── eval_measures.py          # Qini curve/coefficient + bootstrap CI (used); profit curves (from the dataset paper)
+│   ├── targeting.py              # Retention-uplift convention, segments, expected-profit recommendations
+│   └── benchmark.py, dataset.py, easy_ensemble.py, wrappers.py
+│                                 # Helpers from the dataset paper's code; not used by the notebook
+├── tests/                        # pytest suite
+├── outputs/                      # Plots (tracked) and CSVs (generated, git-ignored)
+├── end_user.go, go.mod, go.sum   # Experimental Go chart server (not maintained)
+├── requirements.txt              # Pinned runtime dependencies
+├── requirements-dev.txt          # + pytest
+├── pytest.ini
+└── *.pdf, *.pptx, *.html         # Course reports, slides and architecture diagrams
 ```
 
 ---
 
-## Configuration
-
-### Configuration Files
-
-Configuration is managed via YAML files in `configs/`:
-
-```yaml
-# configs/default.yaml
-data:
-  path: "data/raw/orange_belgium.csv"
-  test_size: 0.2
-  validation_size: 0.2
-  random_state: 42
-
-preprocessing:
-  stratify_groups: 4
-  propensity_clip: [0.05, 0.95]
-  smote_target_ratio: 0.15
-
-models:
-  churn:
-    xgboost:
-      max_depth: 6
-      learning_rate: 0.1
-      n_estimators: 100
-      scale_pos_weight: 28.2
-    
-  uplift:
-    s_learner:
-      base_model: "xgboost"
-      params:
-        max_depth: 6
-        learning_rate: 0.1
-
-evaluation:
-  cv_folds: 5
-  bootstrap_iterations: 1000
-  confidence_level: 0.95
-
-business:
-  intervention_cost: 40
-  customer_value: 1600
-```
-
-### Environment Variables
-
-```bash
-# .env file
-DATA_PATH=data/raw/orange_belgium.csv
-MODEL_PATH=models/
-RESULTS_PATH=results/
-LOG_LEVEL=INFO
-STREAMLIT_PORT=8501
-```
-
----
-
-##  Usage
-
-### Training Models
-
-```python
-from src.data.preprocessor import DataPreprocessor
-from src.models.churn.xgboost_model import XGBoostChurnModel
-from src.models.uplift.s_learner import SLearner
-
-# Load and preprocess data
-preprocessor = DataPreprocessor(config="configs/default.yaml")
-X_train, y_train, t_train = preprocessor.load_and_preprocess()
-
-# Train churn model
-churn_model = XGBoostChurnModel(scale_pos_weight=28.2)
-churn_model.fit(X_train, y_train)
-churn_probs = churn_model.predict_proba(X_test)
-
-# Train uplift model
-uplift_model = SLearner(base_model="xgboost")
-uplift_model.fit(X_train, y_train, t_train)
-uplift_scores = uplift_model.predict(X_test, t_test)
-```
-
-### Generating Recommendations
-
-```python
-from src.recommender.engine import RecommendationEngine
-
-# Initialize recommender
-recommender = RecommendationEngine(
-    churn_model=churn_model,
-    uplift_model=uplift_model,
-    intervention_cost=40
-)
-
-# Generate recommendations
-recommendations = recommender.recommend(
-    X_test,
-    top_k=58,
-    min_uplift=0.01
-)
-
-# Export to CSV
-recommendations.to_csv("results/recommendations.csv")
-```
-
-### SHAP Explanations
-
-```python
-from src.explainability.shap_explainer import SHAPExplainer
-
-# Initialize SHAP
-explainer = SHAPExplainer(uplift_model)
-
-# Global feature importance
-feature_importance = explainer.global_importance(X_test)
-
-# Individual explanation
-customer_explanation = explainer.explain_customer(
-    customer_id=142,
-    X=X_test
-)
-
-# Waterfall plot
-explainer.plot_waterfall(customer_id=142)
-```
-
-### Dashboard
-
-```python
-# Launch Streamlit dashboard
-streamlit run src/dashboard/app.py
-
-# Or with custom config
-streamlit run src/dashboard/app.py -- --config configs/production.yaml
-```
-
----
-
-## API Reference
-
-### Data Pipeline
-
-```python
-class DataPreprocessor:
-    """
-    Handles data loading, validation, and preprocessing.
-    
-    Methods:
-        load_and_preprocess() -> Tuple[np.ndarray, np.ndarray, np.ndarray]
-        stratify_4_groups(X, y, t) -> Tuple[...]
-        calculate_propensity_scores(X, t) -> np.ndarray
-        apply_smote(X, y, t) -> Tuple[np.ndarray, np.ndarray, np.ndarray]
-    """
-```
-
-### Models
-
-```python
-class XGBoostChurnModel:
-    """
-    XGBoost binary classification for churn prediction.
-    
-    Args:
-        scale_pos_weight (float): Class weight for positive class
-        max_depth (int): Maximum tree depth
-        learning_rate (float): Boosting learning rate
-    
-    Methods:
-        fit(X, y) -> None
-        predict(X) -> np.ndarray
-        predict_proba(X) -> np.ndarray
-    """
-
-class SLearner:
-    """
-    S-Learner meta-algorithm for uplift modeling.
-    
-    Args:
-        base_model (str): Base model type ('xgboost', 'lightgbm', 'rf')
-        **kwargs: Base model parameters
-    
-    Methods:
-        fit(X, y, t) -> None
-        predict(X, t) -> np.ndarray  # Uplift scores τ(x)
-    """
-```
-
-### Evaluation
-
-```python
-def calculate_qini_coefficient(
-    y_true: np.ndarray,
-    uplift_pred: np.ndarray,
-    treatment: np.ndarray
-) -> float:
-    """
-    Calculate Qini coefficient.
-    
-    Args:
-        y_true: True outcomes
-        uplift_pred: Predicted uplift scores
-        treatment: Treatment assignment
-    
-    Returns:
-        Qini coefficient (higher is better)
-    """
-```
-
----
-
-## Model Performance
-
-### Churn Prediction Results
-
-| Model | AUC | F1 Score | Precision | Recall |
-|-------|-----|----------|-----------|--------|
-| Random Forest | 0.821 | 0.215 | 0.342 | 0.157 |
-| LightGBM | 0.838 | 0.226 | 0.359 | 0.164 |
-| **XGBoost** | **0.839** | **0.231** | **0.365** | **0.169** |
-
-**Context:** F1 of 0.231 represents maximum signal extraction with 28:1 class imbalance and 408 total positives.
-
-### Uplift Modeling Results
-
-| Model | Qini Coefficient | AUUC | Interpretation |
-|-------|------------------|------|----------------|
-| **S-Learner** | **0.33** | **0.21** | 33% better than random |
-| T-Learner | -0.71 | -0.52 | Overfitting (worse than random) |
-| X-Learner | -1.90 | -1.34 | Severe overfitting |
-| UpliftRandomForest | -0.84 | -0.61 | Overfitting |
-
-**Why S-Learner Won:** With only 170/60 samples per group, T-Learner suffered high variance. S-Learner's pooled approach (230 total samples) provided better variance-bias tradeoff.
-
-### Business Impact
-
-| Metric | Value | Notes |
-|--------|-------|-------|
-| Customers Targeted | 58 | High-uplift persuadables |
-| Intervention Cost | $2,320 | 58 × $40 per customer |
-| Projected Saves | ~19 | Based on Qini 0.33 |
-| Revenue Protected | $30,268 | Customer lifetime value |
-| Net Benefit | $27,948 | After intervention cost |
-| **ROI** | **1,204%** | Projected impact |
-
-**Validation Note:** ROI is projected based on model predictions. Production deployment requires A/B testing for validation, and not following the Next Feature Fallacy.
-
----
-
-## Testing
-
-### Run All Tests
-
-```bash
-# Run full test suite
-pytest tests/ -v
-
-# Run with coverage
-pytest tests/ --cov=src --cov-report=html
-
-# Run specific test module
-pytest tests/test_models.py -v
-```
-
-### Test Structure
-
-```python
-# tests/test_models.py
-import pytest
-from src.models.uplift.s_learner import SLearner
-
-def test_s_learner_fit():
-    """Test S-Learner training."""
-    model = SLearner(base_model="xgboost")
-    model.fit(X_train, y_train, t_train)
-    assert hasattr(model, 'model_')
-
-def test_s_learner_predict():
-    """Test S-Learner prediction."""
-    model = SLearner(base_model="xgboost")
-    model.fit(X_train, y_train, t_train)
-    uplift = model.predict(X_test, t_test)
-    assert len(uplift) == len(X_test)
-    assert -1 <= uplift.mean() <= 1  # Reasonable range
-```
-
-### Continuous Integration
-
-```yaml
-# .github/workflows/tests.yml
-name: Tests
-
-on: [push, pull_request]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.11
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-          pip install pytest pytest-cov
-      - name: Run tests
-        run: pytest tests/ --cov=src
-```
-
----
-
-## Deployment
-
-### Docker Deployment
-
-```bash
-# Build image
-docker build -t churn-uplift:latest -f docker/Dockerfile .
-
-# Run container
-docker run -p 8501:8501 churn-uplift:latest
-
-# Using docker-compose
-docker-compose -f docker/docker-compose.yml up
-```
-
-### Dockerfile
-
-```dockerfile
-FROM python:3.11-slim
-
-WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY src/ ./src/
-COPY models/ ./models/
-COPY configs/ ./configs/
-
-EXPOSE 8501
-
-CMD ["streamlit", "run", "src/dashboard/app.py"]
-```
-
-### Cloud Deployment
-
-#### AWS EC2
-
-```bash
-# SSH into EC2 instance
-ssh -i key.pem ubuntu@ec2-xx-xx-xx-xx.compute.amazonaws.com
-
-# Clone repository
-git clone https://github.com/yourusername/churn-uplift-modeling.git
-cd churn-uplift-modeling
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run with nohup
-nohup streamlit run src/dashboard/app.py --server.port 8501 &
-```
-
-#### Google Cloud Run
-
-```bash
-# Build and deploy
-gcloud builds submit --tag gcr.io/PROJECT_ID/churn-uplift
-gcloud run deploy --image gcr.io/PROJECT_ID/churn-uplift --platform managed
-```
-
-#### Heroku
-
-```bash
-# Create Procfile
-echo "web: streamlit run src/dashboard/app.py --server.port=\$PORT" > Procfile
-
-# Deploy
-heroku create churn-uplift-app
-git push heroku main
-```
-
----
-
-## Contributing
-
-We welcome contributions! Please follow these guidelines:
-
-### How to Contribute
-
-1. **Fork the repository**
-   ```bash
-   git clone https://github.com/yourusername/churn-uplift-modeling.git
-   cd churn-uplift-modeling
-   ```
-
-2. **Create a feature branch**
-   ```bash
-   git checkout -b feature/amazing-feature
-   ```
-
-3. **Make your changes**
-   - Follow PEP 8 style guide
-   - Add docstrings to all functions
-   - Write unit tests for new features
-   - Update documentation
-
-4. **Run tests**
-   ```bash
-   pytest tests/ -v
-   black src/ tests/  # Code formatting
-   flake8 src/ tests/  # Linting
-   ```
-
-5. **Commit your changes**
-   ```bash
-   git commit -m "Add amazing feature"
-   ```
-
-6. **Push to your fork**
-   ```bash
-   git push origin feature/amazing-feature
-   ```
-
-7. **Open a Pull Request**
-   - Describe your changes
-   - Link related issues
-   - Request review
-
-### Code Style
-
-```python
-# Good: Clear docstrings, type hints, descriptive names
-def calculate_qini_coefficient(
-    y_true: np.ndarray,
-    uplift_pred: np.ndarray,
-    treatment: np.ndarray
-) -> float:
-    """
-    Calculate Qini coefficient for uplift model evaluation.
-    
-    Args:
-        y_true: Binary outcomes (0/1)
-        uplift_pred: Predicted uplift scores
-        treatment: Treatment assignment (0/1)
-    
-    Returns:
-        Qini coefficient between -1 and 1 (higher is better)
-    
-    Example:
-        >>> qini = calculate_qini_coefficient(y_true, uplift, treatment)
-        >>> print(f"Qini: {qini:.3f}")
-    """
-    # Implementation...
-```
-
-### Contribution Areas
-
-- **Bug Fixes:** Found a bug? Submit an issue and PR!
-- **New Features:** Add new meta-learners, evaluation metrics, or visualizations
-- **Documentation:** Improve README, add tutorials, write guides
-- **Testing:** Increase test coverage, add integration tests
-- **UI/UX:** Enhance dashboard design, add new visualizations for steamlit
-- **Performance:** Optimize code, reduce memory usage, speed up training
+## Limitations
+
+- **Treatment is only partly random.** According to the dataset paper, the control group was drawn at random from customers already selected as high churn risk. Within this data, treatment probability still varies with customer features (propensity AUC 0.631), so uplift estimates rely on there being no unmeasured confounding.
+- **Small, rare signal.** There are 244 churners in the training set (63 in the control arm), and the average effect is about 0.25 percentage points. Confidence intervals are wide.
+- **One validation split.** Model selection and threshold tuning use a single validation set; repeated cross-validation would give more stable comparisons.
+- **Churn probabilities are not calibrated.** Class weighting inflates them (test mean 0.049 vs a 0.035 churn rate). They are shown for context, and the decision uses uplift only.
+- **Features are anonymised.** SHAP explanations refer to principal components, which carry no business meaning.
+
+## Roadmap
+
+- [x] Two-stage churn + uplift pipeline (T/S/X-Learner, Uplift Random Forest)
+- [x] Tie-aware Qini with bootstrap confidence intervals
+- [x] Expected-profit targeting with an explicit sign convention
+- [x] SHAP explanations for the churn model
+- [x] Streamlit dashboard
+- [x] pytest suite and pinned, reproducible environment
+- [ ] Repeated cross-validation for model selection
+- [ ] Propensity-aware evaluation (inverse-propensity-weighted Qini)
+- [ ] Probability calibration and PR-AUC for the churn model
+- [ ] Continuous integration
+- [ ] Remove or update the unused helper modules and the Go chart server
 
 ---
 
 ## 📖 Citation
 
-If you use this project in your research, please cite:
-
 ```bibtex
 @misc{atre2026churn,
   author = {Atre, Aryan},
-  title = {Churn Prediction and Recommendation System with Uplift Modeling: 
+  title = {Churn Prediction and Recommendation System with Uplift Modeling:
            A Causal Inference Approach to Customer Retention},
   year = {2026},
   publisher = {GitHub},
-  journal = {GitHub repository},
-  howpublished = {\url{https://github.com/yourusername/churn-uplift-modeling}},
+  howpublished = {\url{https://github.com/atrearyanuf/Churn-Prediction-and-Recommendation-System-with-Uplift-Modeling}},
   note = {CAI6826 - Artificial Intelligence Systems, University of Florida}
 }
-```
-
-**Academic Paper:**
-```
-Atre, A. (2026). Churn Prediction and Recommendation System with Uplift Modeling: 
-A Causal Inference Approach to Customer Retention. 
-CAI6826 Final Project Report, University of Florida.
 ```
 
 ---
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License.
 
 ```
 MIT License
@@ -970,35 +293,35 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+The helper modules in `functions/` other than `functions/targeting.py` and the Qini functions in `functions/eval_measures.py` come from the dataset paper's code repository (see Acknowledgments).
+
 ---
 
 ##  Acknowledgments
 
+### Dataset
+
+- T. Verhelst, D. Mercier, J. Shrestha, G. Bontempi. *A churn prediction dataset from the telecom sector: a new benchmark for uplift modeling.* ECML PKDD 2023 Workshop on Uplift Modeling and Causal Machine Learning for Operational Decision Making. [arXiv:2312.07206](https://arxiv.org/abs/2312.07206). Data provided by Orange Belgium; code at [TheoVerhelst/Churn-Uplift-Dataset-Paper](https://github.com/TheoVerhelst/Churn-Uplift-Dataset-Paper).
+
 ### Libraries & Frameworks
 
-- **[XGBoost](https://xgboost.readthedocs.io/)** - Gradient boosting framework
-- **[LightGBM](https://lightgbm.readthedocs.io/)** - Gradient boosting framework
-- **[CausalML](https://causalml.readthedocs.io/)** - Uplift modeling library by Uber
-- **[SHAP](https://shap.readthedocs.io/)** - Model interpretability
-- **[Streamlit](https://streamlit.io/)** - Dashboard framework
-- **[scikit-learn](https://scikit-learn.org/)** - Machine learning utilities
+- **[XGBoost](https://xgboost.readthedocs.io/)** and **[LightGBM](https://lightgbm.readthedocs.io/)**: gradient boosting
+- **[CausalML](https://causalml.readthedocs.io/)**: uplift modeling (Uber)
+- **[SHAP](https://shap.readthedocs.io/)**: model interpretability
+- **[Streamlit](https://streamlit.io/)**: dashboard
+- **[scikit-learn](https://scikit-learn.org/)**: machine learning utilities
 
 ### Academic References
 
-- Künzel et al. (2019) - Meta-learners for heterogeneous treatment effects
-- Gutierrez & Gérardy (2017) - Causal inference and uplift modeling review
-- Lundberg & Lee (2017) - SHAP unified framework
-- Radcliffe & Surry (2011) - Real-world uplift modeling
-
-### Datasets
-
-- **Orange Belgium Telecom Dataset** - Customer churn data for research and education
+- Künzel et al. (2019): Meta-learners for estimating heterogeneous treatment effects
+- Gutierrez & Gérardy (2017): Causal inference and uplift modeling, a review
+- Radcliffe (2007): Using control groups to target on predicted lift (Qini)
+- Lundberg & Lee (2017): A unified approach to interpreting model predictions (SHAP)
 
 ### Special Thanks
 
-- **University of Florida** - CAI6826 course infrastructure
-- **Professor [Name]** - Project guidance and feedback(Dr. Silva and Professor Aslam)
-- **Open Source Community** - Libraries and tools that made this possible
+- **University of Florida**: CAI6826 course infrastructure
+- **Dr. Silva and Professor Aslam**: project guidance and feedback
 
 ---
 
@@ -1006,46 +329,7 @@ SOFTWARE.
 
 **Aryan Atre**
 - University of Florida - Artificial Intelligence Systems
-- Email: atrearayn@ufl.edu
+- Email: atrearyan@ufl.edu
 - LinkedIn: [linkedin.com/in/aryan-atre](https://www.linkedin.com/in/aryan-atre)
-- GitHub: [@yourusername](https://github.com/atrearyanuf)
-
-### Getting Help
-
-- **Issues:** [GitHub Issues](https://github.com/yourusername/churn-uplift-modeling/issues)
-- **Discussions:** [GitHub Discussions](https://github.com/yourusername/churn-uplift-modeling/discussions)
-- **Email:** For inquiries: atrearayn@ufl.edu
-
----
-
-##  Roadmap
-
-### Completed 
-- [x] Two-stage churn + uplift pipeline
-- [x] T-Learner, S-Learner, X-Learner, UpliftRandomForest
-- [x] SHAP explainability integration
-- [x] Streamlit dashboard
-- [x] Comprehensive documentation
-- [x] Unit tests and CI/CD
-
-### In Progress 
-- [ ] Deep learning uplift models (DragonNet, TARNet)
-- [ ] Multi-armed uplift (3+ treatment options)
-- [ ] Real-time A/B testing integration
-
-### Future Plans 
-- [ ] Temporal modeling with survival analysis
-- [ ] Reinforcement learning for sequential interventions
-- [ ] AutoML for hyperparameter optimization
-- [ ] REST API for production deployment
-- [ ] Mobile app for recommendations
-
----
-
-<div align="center">
-
-**⭐ Star this repository if you found it helpful!**
-
-**Made with ❤️ by [Aryan Atre](https://github.com/yourusername)**
-
-</div>
+- GitHub: [@atrearyanuf](https://github.com/atrearyanuf)
+- Issues: [GitHub Issues](https://github.com/atrearyanuf/Churn-Prediction-and-Recommendation-System-with-Uplift-Modeling/issues)
