@@ -118,7 +118,7 @@ def qini_coefficient(y, t, score, weights=None):
     q = qini_curve(y, t, score, weights)
     return float((q - np.linspace(0.0, q[-1], len(q))).mean())
 
-def _bootstrap(statistic, t, n_boot, alpha, seed):
+def bootstrap_interval(statistic, t, n_boot=1000, alpha=0.05, seed=0):
     """Percentile interval of statistic(rows), resampling treated and control
     customers separately so every replicate keeps the original arm sizes."""
     rng = np.random.default_rng(seed)
@@ -138,7 +138,7 @@ def bootstrap_qini(y, t, score, weights=None, n_boot=1000, alpha=0.05, seed=0):
     y, t, score = np.asarray(y), np.asarray(t), np.asarray(score)
     w = np.ones(len(y)) if weights is None else np.asarray(weights, dtype=float)
     estimate = qini_coefficient(y, t, score, w)
-    lower, upper = _bootstrap(lambda i: qini_coefficient(y[i], t[i], score[i], w[i]), t, n_boot, alpha, seed)
+    lower, upper = bootstrap_interval(lambda i: qini_coefficient(y[i], t[i], score[i], w[i]), t, n_boot, alpha, seed)
     return estimate, lower, upper
 
 def aipw_pseudo_outcomes(y, t, mu0, mu1, propensity):
@@ -190,5 +190,5 @@ def bootstrap_dr_qini(t, score, effects, n_boot=1000, alpha=0.05, seed=0):
     """DR Qini coefficient with a percentile bootstrap confidence interval."""
     t, score, effects = np.asarray(t), np.asarray(score), np.asarray(effects)
     estimate = dr_qini_coefficient(t, score, effects)
-    lower, upper = _bootstrap(lambda i: dr_qini_coefficient(t[i], score[i], effects[i]), t, n_boot, alpha, seed)
+    lower, upper = bootstrap_interval(lambda i: dr_qini_coefficient(t[i], score[i], effects[i]), t, n_boot, alpha, seed)
     return estimate, lower, upper
