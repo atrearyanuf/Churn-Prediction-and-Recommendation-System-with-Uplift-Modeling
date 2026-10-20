@@ -1,6 +1,15 @@
+from pathlib import Path
+
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+
+# Written by Churn_Uplift_COMPLETE.ipynb (paths relative to the repo root)
+DATA_FILES = {
+    "raw": "data/churn_uplift_anonymized.csv",
+    "recs": "outputs/customer_recommendations.csv",
+    "models": "outputs/uplift_comparison_results.csv",
+}
 
 st.set_page_config(page_title="Churn Dashboard", layout="wide")
 st.title("Churn Prediction & Uplift Modeling")
@@ -8,10 +17,16 @@ st.title("Churn Prediction & Uplift Modeling")
 # ── Load data ──────────────────────────────────────────────────────────────────
 @st.cache_data
 def load_data():
-    raw = pd.read_csv("data/churn_uplift_anonymized.csv")
-    recs = pd.read_csv("outputs/customer_recommendations.csv")
-    models = pd.read_csv("outputs/uplift_comparison_results.csv")
+    raw = pd.read_csv(DATA_FILES["raw"])
+    recs = pd.read_csv(DATA_FILES["recs"])
+    models = pd.read_csv(DATA_FILES["models"])
     return raw, recs, models
+
+missing = [f for f in DATA_FILES.values() if not Path(f).exists()]
+if missing:
+    st.error("Missing " + ", ".join(missing) + ". Run Churn_Uplift_COMPLETE.ipynb "
+             "first, then start the dashboard from the repository root.")
+    st.stop()
 
 raw, recs, models = load_data()
 
@@ -38,7 +53,7 @@ with col1:
     st.subheader("Churn Probability Distribution")
     fig = px.histogram(recs, x="churn_probability", nbins=30, color_discrete_sequence=["#3b82f6"])
     fig.update_layout(margin=dict(t=10, b=10), height=300, xaxis_title="Churn Probability", yaxis_title="Count")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 with col2:
     st.subheader("Recommended Interventions")
@@ -46,11 +61,11 @@ with col2:
     counts.columns = ["Intervention", "Count"]
     fig2 = px.bar(counts, x="Intervention", y="Count", color_discrete_sequence=["#10b981"])
     fig2.update_layout(margin=dict(t=10, b=10), height=300)
-    st.plotly_chart(fig2, use_container_width=True)
+    st.plotly_chart(fig2, width="stretch")
 
 # ── Model comparison ───────────────────────────────────────────────────────────
 st.subheader("Uplift Model Comparison")
-st.dataframe(models, use_container_width=True)
+st.dataframe(models, width="stretch")
 
 # ── Customer recommendations table ─────────────────────────────────────────────
 st.subheader("Customer Recommendations")
@@ -65,5 +80,5 @@ filtered = recs[
     (recs["recommended_intervention"].isin(selected))
 ].sort_values("expected_profit", ascending=False)
 
-st.dataframe(filtered.reset_index(drop=True), use_container_width=True)
+st.dataframe(filtered.reset_index(drop=True), width="stretch")
 st.caption(f"Showing {len(filtered):,} of {len(recs):,} customers")

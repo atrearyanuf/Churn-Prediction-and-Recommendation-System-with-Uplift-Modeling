@@ -27,3 +27,12 @@ def test_dashboard_renders_notebook_outputs(tmp_path, monkeypatch):
     assert app.metric[4].label == "Avg Retention Uplift"
     table = app.dataframe[1].value
     assert table["expected_profit"].is_monotonic_decreasing
+
+
+def test_dashboard_explains_missing_notebook_outputs(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    app = AppTest.from_file(DASHBOARD).run()
+
+    assert not app.exception
+    assert "Run Churn_Uplift_COMPLETE.ipynb first" in app.error[0].value
